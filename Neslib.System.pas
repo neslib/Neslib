@@ -70,7 +70,7 @@ type
   {$ENDREGION 'Internal Declarations'}
   public
     { You should NOT use Free to destroy an object. Use Release instead. }
-    procedure Free;
+    procedure Free; deprecated 'Use Release instead';
 
     { Hold on to this object by increasing its reference count. If you use this
       method, then you MUST call Release at a later point to release your
@@ -143,6 +143,48 @@ type
     property HasValue: Boolean read FHasValue;
   end;
 
+type
+  { Represents a 2-tuple, or pair }
+  TTuple<T1, T2> = record
+  public
+    { The first item }
+    Item1: T1;
+
+    { The second item }
+    Item2: T2;
+  end;
+
+type
+  { Represents a 3-tuple, or triple }
+  TTuple<T1, T2, T3> = record
+  public
+    { The first item }
+    Item1: T1;
+
+    { The second item }
+    Item2: T2;
+
+    { The third item }
+    Item3: T3;
+  end;
+
+type
+  { Represents a 4-tuple, or quadruple }
+  TTuple<T1, T2, T3, T4> = record
+  public
+    { The first item }
+    Item1: T1;
+
+    { The second item }
+    Item2: T2;
+
+    { The third item }
+    Item3: T3;
+
+    { The fourth item }
+    Item4: T4;
+  end;
+
 resourcestring
   RS_NULLABLE_ERROR = 'Illegal access of nullable value wity value null';
 
@@ -187,7 +229,7 @@ end;
 
 procedure TRefCounted.Release;
 begin
-  {$IFDEF AUTOREFCOUNT}
+  {$IFNDEF AUTOREFCOUNT}
   if (Self <> nil) and (AtomicDecrement(FRefCount) = 0) then
     Destroy;
   {$ENDIF}
@@ -195,7 +237,7 @@ end;
 
 procedure TRefCounted.Retain;
 begin
-  {$IFDEF AUTOREFCOUNT}
+  {$IFNDEF AUTOREFCOUNT}
   if (Self <> nil) then
     AtomicIncrement(FRefCount);
   {$ENDIF}
