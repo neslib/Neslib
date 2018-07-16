@@ -1360,6 +1360,9 @@ const
   EMPTY_HASH = -1;
   HASH_MASK = $7FFFFFFF;
 
+type
+  PRefCounted = ^TRefCounted;
+
 resourcestring
   SRCDictionaryRequiresRefCountedKeys = 'TRCDictionary requires keys derived from TRefCounted';
   SRCDictionaryRequiresRefCountedValues = 'TRCDictionary requires values derived from TRefCounted';
@@ -1373,9 +1376,6 @@ uses
   System.TypInfo,
   System.SysUtils,
   System.RTLConsts;
-
-type
-  PRefCounted = ^TRefCounted;
 
 function InCircularRange(const ABottom, AItem, ATopInc: Integer): Boolean; inline;
 begin
