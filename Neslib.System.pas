@@ -43,6 +43,16 @@ type
       end;
       </source>
 
+    Because this is such a common pattern, you can use the static helper method
+    Assign<T> instead:
+
+      <source>
+      procedure TMyObject.SetFoo(const AValue: TFoo);
+      begin
+        Assign(FFoo, AValue);
+      end;
+      </source>
+
     This releases the previous hold and retains the new when. You MUST include
     an inequality check first to avoid freeing an object prematurely.
     Note that it is safe to call Release and Retain on a nil-object, so you
@@ -93,6 +103,27 @@ type
 
       It is safe to call this method on a nil-instance. }
     procedure Release; inline;
+
+    { Assigns a value to a TRefCounted variable or field, updating the reference
+      counts accordingly.
+
+      Parameters:
+        ATarget: the target field or variable to set.
+        ASource: the value to set ATarget to.
+
+      This method is equivalent to the following pattern:
+
+        <source>
+        if (ATarget <> ASource) then
+        begin
+          ATarget.Release;
+          ATarget := ASource;
+          ATarget.Retain;
+        end;
+        </source>
+
+      On ARC platforms, this method just assigns the value. }
+    class procedure Assign<T: TRefCounted>(var ATarget: T; const ASource: T); inline; static;
   end;
 
 type
@@ -195,6 +226,20 @@ uses
   System.SysUtils;
 
 { TRefCounted }
+
+class procedure TRefCounted.Assign<T>(var ATarget: T; const ASource: T);
+begin
+  {$IFDEF AUTOREFCOUNT}
+  ATarget := ASource;
+  {$ELSE}
+  if (ATarget <> ASource) then
+  begin
+    ATarget.Release;
+    ATarget := ASource;
+    ATarget.Retain;
+  end;
+  {$ENDIF}
+end;
 
 {$IFNDEF AUTOREFCOUNT}
 procedure TRefCounted.BeforeDestruction;
