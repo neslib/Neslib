@@ -165,6 +165,9 @@ type
     { Compares two nullables for equality. }
     class operator NotEqual(const ALeft, ARight: Nullable<T>): Boolean;
 
+    { Gets the value, or the default value in case HasValue is False. }
+    function GetValueOrDefault: T; inline;
+
     { The value, if it has been assigned a valid underlying value.
       Raises an EInvalidOperation if HasValue is False. }
     property Value: T read GetValue;
@@ -183,6 +186,8 @@ type
 
     { The second item }
     Item2: T2;
+  public
+    constructor Create(const AItem1: T1; const AItem2: T2);
   end;
 
 type
@@ -197,6 +202,8 @@ type
 
     { The third item }
     Item3: T3;
+  public
+    constructor Create(const AItem1: T1; const AItem2: T2; const AItem3: T3);
   end;
 
 type
@@ -214,6 +221,9 @@ type
 
     { The fourth item }
     Item4: T4;
+  public
+    constructor Create(const AItem1: T1; const AItem2: T2; const AItem3: T3;
+      const AItem4: T4);
   end;
 
 resourcestring
@@ -339,6 +349,14 @@ begin
   Result := FValue;
 end;
 
+function Nullable<T>.GetValueOrDefault: T;
+begin
+  if (FHasValue) then
+    Result := FValue
+  else
+    Result := Default(T);
+end;
+
 class operator Nullable<T>.Implicit(const AValue: T): Nullable<T>;
 begin
   Result := Nullable<T>.Create(AValue);
@@ -354,6 +372,35 @@ procedure Nullable<T>.SetNull;
 begin
   FValue := Default(T);
   FHasValue := False;
+end;
+
+{ TTuple<T1, T2> }
+
+constructor TTuple<T1, T2>.Create(const AItem1: T1; const AItem2: T2);
+begin
+  Item1 := AItem1;
+  Item2 := AItem2;
+end;
+
+{ TTuple<T1, T2, T3> }
+
+constructor TTuple<T1, T2, T3>.Create(const AItem1: T1; const AItem2: T2;
+  const AItem3: T3);
+begin
+  Item1 := AItem1;
+  Item2 := AItem2;
+  Item3 := AItem3;
+end;
+
+{ TTuple<T1, T2, T3, T4> }
+
+constructor TTuple<T1, T2, T3, T4>.Create(const AItem1: T1; const AItem2: T2;
+  const AItem3: T3; const AItem4: T4);
+begin
+  Item1 := AItem1;
+  Item2 := AItem2;
+  Item3 := AItem3;
+  Item4 := AItem4;
 end;
 
 end.
