@@ -460,12 +460,18 @@ type
     { Creates an empty list }
     constructor Create; overload;
 
-    { Creates a list with the contents of another collection
+    { Creates a list with the contents of another collection.
 
       Parameters:
         ACollection: the collection containing the items to add. Can be any
           class that descends from TEnumerable<T>. }
     constructor Create(const ACollection: TEnumerable<T>); overload;
+
+    { Creates a list with an initial capacity.
+
+      Parameters:
+        AInitialCapacity: the initial capacity of the list. }
+    constructor Create(const AInitialCapacity: Integer); overload;
 
     { Adds an item to the end of the list.
 
@@ -1852,6 +1858,12 @@ end;
 procedure TList<T>.AddRange(const ACollection: TEnumerable<T>);
 begin
   InsertRange(FCount, ACollection);
+end;
+
+constructor TList<T>.Create(const AInitialCapacity: Integer);
+begin
+  inherited Create;
+  SetCapacity(AInitialCapacity);
 end;
 
 constructor TList<T>.Create;
