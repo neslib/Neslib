@@ -63,7 +63,7 @@ type
     to use Retain and Release to manage the object lifetime. If you need
     automatic reference counting for interfaces, then you should derive from
     TInterfacedObject instead. }
-  TRefCounted = class abstract
+  TRefCounted = class abstract(TObject)
   {$REGION 'Internal Declarations'}
   {$IFNDEF AUTOREFCOUNT}
   private

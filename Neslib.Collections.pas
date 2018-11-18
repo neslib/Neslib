@@ -850,6 +850,16 @@ type
         The dequeued value }
     function Dequeue: T;
 
+    { Tries to dequeue a value (and remove it from the beginning of the queue)
+
+      Parameters:
+        AValue: is set to the dequeued value on success, or Default(T) on
+          failure.
+
+      Returns:
+        True if there was a value to dequeue, or False otherwise }
+    function TryDequeue(out AValue: T): Boolean; inline;
+
     { The number of items in the queue }
     property Count: Integer read FCount;
 
@@ -1318,8 +1328,11 @@ type
       item.
 
       Parameters:
-        AItem: the item to remove. }
-    procedure Remove(const AItem: T);
+        AItem: the item to remove.
+
+      Returns:
+        Whether the set contained AItem. }
+    function Remove(const AItem: T): Boolean;
 
     { Clears the set. }
     procedure Clear; virtual;
@@ -2470,6 +2483,18 @@ begin
   end;
 end;
 
+function TQueue<T>.TryDequeue(out AValue: T): Boolean;
+begin
+  if (FCount = 0) then
+  begin
+    AValue := Default(T);
+    Exit(False);
+  end;
+
+  AValue := Dequeue;
+  Result := True;
+end;
+
 { TQueue<T>.TEnumerator }
 
 constructor TQueue<T>.TEnumerator.Create(const AQueue: TQueue<T>);
@@ -3320,12 +3345,12 @@ begin
   { No default implementation }
 end;
 
-procedure TSet<T>.Remove(const AItem: T);
+function TSet<T>.Remove(const AItem: T): Boolean;
 var
   Mask, Index, HashCode, HC: Integer;
 begin
   if (FCount = 0) then
-    Exit;
+    Exit(False);
 
   HashCode := FComparer.GetHashCode(AItem) and HASH_MASK;
   Mask := Length(FItems) - 1;
@@ -3340,11 +3365,13 @@ begin
     if (HC = HashCode) and FComparer.Equals(FItems[Index].Item, AItem) then
     begin
       DoRemove(Index, Mask);
-      Exit;
+      Exit(True);
     end;
 
     Index := (Index + 1) and Mask;
   end;
+
+  Result := False;
 end;
 
 procedure TSet<T>.Resize(ANewSize: Integer);
