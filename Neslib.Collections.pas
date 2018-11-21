@@ -9,6 +9,7 @@ interface
 
 uses
   System.Types,
+  System.SyncObjs,
   System.Generics.Defaults,
   Neslib.System;
 
@@ -722,6 +723,16 @@ type
         The popped value. }
     function Pop: T;
 
+    { Tries to pop a value from the (top of the) stack.
+
+      Parameters:
+        AValue: is set to the popped value on success, or Default(T) on
+          failure.
+
+      Returns:
+        True if there was a value to pop, or False otherwise }
+    function TryPop(out AValue: T): Boolean; inline;
+
     { Trims excess memory used by the stack. To improve performance and reduce
       memory reallocations, the stack usually contains space for more items than
       are actually stored in this list. That is, Capacity >= Count. Call this
@@ -760,6 +771,57 @@ type
       Returns:
         The popped value. }
     function Extract: T;
+  end;
+
+type
+  { A thread-safe stack }
+  TConcurrentStack<T> = class(TRefCounted)
+  {$REGION 'Internal Declarations'}
+  private
+    FStack: TStack<T>;
+    FLock: TCriticalSection;
+  {$ENDREGION 'Internal Declarations'}
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    { Clears the stack }
+    procedure Clear; inline;
+
+    { Pushes a value onto the (top of the) stack.
+
+      Parameters:
+        AValue: the value to push }
+    procedure Push(const AValue: T); inline;
+
+    { Peeks at the top of the stack.
+
+      Returns:
+        The value on the top of the stack, without popping it }
+    function Peek: T; inline;
+
+    { Pops a value from the (top of the) stack.
+
+      Returns:
+        The popped value. }
+    function Pop: T; inline;
+
+    { Tries to pop a value from the (top of the) stack.
+
+      Parameters:
+        AValue: is set to the popped value on success, or Default(T) on
+          failure.
+
+      Returns:
+        True if there was a value to pop, or False otherwise }
+    function TryPop(out AValue: T): Boolean; inline;
+
+    { Trims excess memory used by the stack. To improve performance and reduce
+      memory reallocations, the stack usually contains space for more items than
+      are actually stored in this list. That is, Capacity >= Count. Call this
+      method free that excess memory. You can do this when you are done filling
+      the stack to free memory. }
+    procedure TrimExcess; inline;
   end;
 
 type
@@ -891,6 +953,50 @@ type
       Returns:
         The dequeued value }
     function Extract: T;
+  end;
+
+type
+  { A thread-safe queue }
+  TConcurrentQueue<T> = class(TRefCounted)
+  {$REGION 'Internal Declarations'}
+  private
+    FQueue: TQueue<T>;
+    FLock: TCriticalSection;
+  {$ENDREGION 'Internal Declarations'}
+  public
+    constructor Create;
+    destructor Destroy; override;
+  public
+    { Clears the queue }
+    procedure Clear; inline;
+
+    { Enqueues a value (adds it to the end of the queue)
+
+      Parameters:
+        AValue: the value to enqueue }
+    procedure Enqueue(const AValue: T); inline;
+
+    { Peeks at the beginning of the queue.
+
+      Returns:
+        The value at the beginning of the queue, without dequeueing it }
+    function Peek: T; inline;
+
+    { Dequeues a value (removes it from the beginning of the queue)
+
+      Returns:
+        The dequeued value }
+    function Dequeue: T; inline;
+
+    { Tries to dequeue a value (and remove it from the beginning of the queue)
+
+      Parameters:
+        AValue: is set to the dequeued value on success, or Default(T) on
+          failure.
+
+      Returns:
+        True if there was a value to dequeue, or False otherwise }
+    function TryDequeue(out AValue: T): Boolean; inline;
   end;
 
 type
@@ -1221,6 +1327,114 @@ type
         to AKey. Result.Value will be set to the value for that key, or to
         Default(TValue) if the dictionary does not contain the key. }
     function ExtractPair(const AKey: TKey): TPair<TKey, TValue>;
+  end;
+
+type
+  { A thread-safe dictionary }
+  TConcurrentDictionary<TKey, TValue> = class(TRefCounted)
+  {$REGION 'Internal Declarations'}
+  private
+    FDictionary: TDictionary<TKey, TValue>;
+    FLock: TCriticalSection;
+  private
+    function GetItem(const AKey: TKey): TValue; inline;
+    procedure SetItem(const AKey: TKey; const AValue: TValue); inline;
+  {$ENDREGION 'Internal Declarations'}
+  public
+    { Creates an empty dictionary }
+    constructor Create; overload;
+
+    { Creates an empty dictionary with a custom comparer.
+
+      Parameters:
+        AComparer: the equality comparer to use for checking equality and
+          calculating hash codes. }
+    constructor Create(const AComparer: IEqualityComparer<TKey>); overload;
+
+    destructor Destroy; override;
+
+    { Adds a value to the dictionary for a given key.
+
+      Parameters:
+        AKey: the key used to store the value.
+        AValue: the value associated with the key.
+
+      If the dictionary already contains a value for the given key, then an
+      exception is raised. In that case, consider using AddOrSetValue instead. }
+    procedure Add(const AKey: TKey; const AValue: TValue); inline;
+
+    { Removes a value from the dictionary.
+
+      Parameters:
+        AKey: the key of the value to remove.
+
+      Returns:
+        True if the dictionary contained AKey (in which case the value will
+        be removed), or False otherwise. }
+    function Remove(const AKey: TKey): Boolean; inline;
+
+    { Clears the dictionary }
+    procedure Clear; inline;
+
+    { Adds or sets/replaces a value in the dictionary.
+
+      Parameters:
+        AKey: the key used to store the value.
+        AValue: the value associated with the key.
+
+      If the dictionary already contains a value for the given key, then that
+      value is replaced. Otherwise, it is added to the dictionary. }
+    procedure AddOrSetValue(const AKey: TKey; const AValue: TValue); inline;
+
+    { Tries to retrieve a value from the dictionary.
+
+      This is an O(1) operation that uses the dictionary's comparer to check
+      for equality.
+
+      Parameters:
+        AKey: the key to check.
+        AValue: is set to the value for the given key or <code>Default<T></code>
+          if the dictionary doesn't contain the key.
+
+      Returns:
+        True if the dictionary contains AKey, False if not. }
+    function TryGetValue(const AKey: TKey; out AValue: TValue): Boolean; inline;
+
+    { Checks if the dictionary contains a given key.
+      This is an O(1) operation that uses the dictionary's comparer to check
+      for equality.
+
+      Parameters:
+        AKey: the key to check.
+
+      Returns:
+        True if the dictionary contains AKey, False if not. }
+    function ContainsKey(const AKey: TKey): Boolean; inline;
+
+    { Checks if the dictionary contains a given value.
+      This method uses an O(n) linear search that uses the dictionary's comparer
+      to check for equality.
+
+      Parameters:
+        AValue: the value to check.
+
+      Returns:
+        True if the dictionary contains AValue, False if not. }
+    function ContainsValue(const AValue: TValue): Boolean; inline;
+
+    { Gets or sets an item in the dictionary.
+      This is an O(1) operation that uses the dictionary's comparer to check
+      for equality.
+
+      Parameters:
+        AKey: the key to check.
+
+      When getting an item by key, an exception is be raised if the item does
+      not exists.
+
+      When setting an item for a key, an exception is raised it the item already
+      exists. Consider using Add or AddOrSetValue in that case. }
+    property Items[const AKey: TKey]: TValue read GetItem write SetItem; default;
   end;
 
 type
@@ -2278,6 +2492,18 @@ begin
   SetLength(FItems, FCount);
 end;
 
+function TStack<T>.TryPop(out AValue: T): Boolean;
+begin
+  if (FCount = 0) then
+  begin
+    AValue := Default(T);
+    Exit(False);
+  end;
+
+  AValue := Pop;
+  Result := True;
+end;
+
 { TRCStack<T> }
 
 procedure TRCStack<T>.Clear;
@@ -2320,6 +2546,82 @@ end;
 procedure TRCStack<T>.Pop;
 begin
   inherited Pop;
+end;
+
+{ TConcurrentStack<T> }
+
+procedure TConcurrentStack<T>.Clear;
+begin
+  FLock.Acquire;
+  try
+    FStack.Clear;
+  finally
+    FLock.Release;
+  end;
+end;
+
+constructor TConcurrentStack<T>.Create;
+begin
+  inherited Create;
+  FStack := TStack<T>.Create;
+  FLock := TCriticalSection.Create;
+end;
+
+destructor TConcurrentStack<T>.Destroy;
+begin
+  FLock.Free;
+  FStack.Release;
+  inherited;
+end;
+
+function TConcurrentStack<T>.Peek: T;
+begin
+  FLock.Acquire;
+  try
+    Result := FStack.Peek;
+  finally
+    FLock.Release;
+  end;
+end;
+
+function TConcurrentStack<T>.Pop: T;
+begin
+  FLock.Acquire;
+  try
+    Result := FStack.Pop;
+  finally
+    FLock.Release;
+  end;
+end;
+
+procedure TConcurrentStack<T>.Push(const AValue: T);
+begin
+  FLock.Acquire;
+  try
+    FStack.Push(AValue);
+  finally
+    FLock.Release;
+  end;
+end;
+
+procedure TConcurrentStack<T>.TrimExcess;
+begin
+  FLock.Acquire;
+  try
+    FStack.TrimExcess;
+  finally
+    FLock.Release;
+  end;
+end;
+
+function TConcurrentStack<T>.TryPop(out AValue: T): Boolean;
+begin
+  FLock.Acquire;
+  try
+    Result := FStack.TryPop(AValue);
+  finally
+    FLock.Release;
+  end;
 end;
 
 { TQueue<T> }
@@ -2561,6 +2863,72 @@ end;
 procedure TRCQueue<T>.ItemDeleted(const AItem: T);
 begin
   AItem.Release;
+end;
+
+{ TConcurrentQueue<T> }
+
+procedure TConcurrentQueue<T>.Clear;
+begin
+  FLock.Acquire;
+  try
+    FQueue.Clear;
+  finally
+    FLock.Release;
+  end;
+end;
+
+constructor TConcurrentQueue<T>.Create;
+begin
+  inherited Create;
+  FQueue := TQueue<T>.Create;
+  FLock := TCriticalSection.Create;
+end;
+
+function TConcurrentQueue<T>.Dequeue: T;
+begin
+  FLock.Acquire;
+  try
+    Result := FQueue.Dequeue;
+  finally
+    FLock.Release;
+  end;
+end;
+
+destructor TConcurrentQueue<T>.Destroy;
+begin
+  FLock.Free;
+  FQueue.Release;
+  inherited;
+end;
+
+procedure TConcurrentQueue<T>.Enqueue(const AValue: T);
+begin
+  FLock.Acquire;
+  try
+    FQueue.Enqueue(AValue);
+  finally
+    FLock.Release;
+  end;
+end;
+
+function TConcurrentQueue<T>.Peek: T;
+begin
+  FLock.Acquire;
+  try
+    Result := FQueue.Peek;
+  finally
+    FLock.Release;
+  end;
+end;
+
+function TConcurrentQueue<T>.TryDequeue(out AValue: T): Boolean;
+begin
+  FLock.Acquire;
+  try
+    Result := FQueue.TryDequeue(AValue);
+  finally
+    FLock.Release;
+  end;
 end;
 
 { TPair<TKey, TValue> }
@@ -3106,7 +3474,7 @@ constructor TRCDictionary<TKey, TValue>.Create(
 begin
   if (doOwnsKeys in AOwnerships) and (not IsRefCounted<TKey>) then
     raise EListError.CreateRes(@SRCDictionaryRequiresRefCountedKeys);
-  if (doOwnsValues in AOwnerships) and (not IsRefCounted<TKey>) then
+  if (doOwnsValues in AOwnerships) and (not IsRefCounted<TValue>) then
     raise EListError.CreateRes(@SRCDictionaryRequiresRefCountedValues);
   inherited Create;
   FOwnerships := AOwnerships;
@@ -3187,6 +3555,124 @@ begin
 
   if (doOwnsValues in FOwnerships) then
     PRefCounted(@AValue)^.Release;
+end;
+
+{ TConcurrentDictionary<TKey, TValue> }
+
+procedure TConcurrentDictionary<TKey, TValue>.Add(const AKey: TKey;
+  const AValue: TValue);
+begin
+  FLock.Acquire;
+  try
+    FDictionary.Add(AKey, AValue);
+  finally
+    FLock.Release;
+  end;
+end;
+
+procedure TConcurrentDictionary<TKey, TValue>.AddOrSetValue(const AKey: TKey;
+  const AValue: TValue);
+begin
+  FLock.Acquire;
+  try
+    FDictionary.AddOrSetValue(AKey, AValue);
+  finally
+    FLock.Release;
+  end;
+end;
+
+procedure TConcurrentDictionary<TKey, TValue>.Clear;
+begin
+  FLock.Acquire;
+  try
+    FDictionary.Clear;
+  finally
+    FLock.Release;
+  end;
+end;
+
+function TConcurrentDictionary<TKey, TValue>.ContainsKey(
+  const AKey: TKey): Boolean;
+begin
+  FLock.Acquire;
+  try
+    Result := FDictionary.ContainsKey(AKey);
+  finally
+    FLock.Release;
+  end;
+end;
+
+function TConcurrentDictionary<TKey, TValue>.ContainsValue(
+  const AValue: TValue): Boolean;
+begin
+  FLock.Acquire;
+  try
+    Result := FDictionary.ContainsValue(AValue);
+  finally
+    FLock.Release;
+  end;
+end;
+
+constructor TConcurrentDictionary<TKey, TValue>.Create;
+begin
+  Create(TEqualityComparer<TKey>.Default);
+end;
+
+constructor TConcurrentDictionary<TKey, TValue>.Create(
+  const AComparer: IEqualityComparer<TKey>);
+begin
+  inherited Create;
+  FDictionary := TDictionary<TKey, TValue>.Create(AComparer);
+  FLock := TCriticalSection.Create;
+end;
+
+destructor TConcurrentDictionary<TKey, TValue>.Destroy;
+begin
+  FLock.Free;
+  FDictionary.Release;
+  inherited;
+end;
+
+function TConcurrentDictionary<TKey, TValue>.GetItem(const AKey: TKey): TValue;
+begin
+  FLock.Acquire;
+  try
+    Result := FDictionary.GetItem(AKey);
+  finally
+    FLock.Release;
+  end;
+end;
+
+function TConcurrentDictionary<TKey, TValue>.Remove(const AKey: TKey): Boolean;
+begin
+  FLock.Acquire;
+  try
+    FDictionary.Remove(AKey);
+  finally
+    FLock.Release;
+  end;
+end;
+
+procedure TConcurrentDictionary<TKey, TValue>.SetItem(const AKey: TKey;
+  const AValue: TValue);
+begin
+  FLock.Acquire;
+  try
+    FDictionary.SetItem(AKey, AValue);
+  finally
+    FLock.Release;
+  end;
+end;
+
+function TConcurrentDictionary<TKey, TValue>.TryGetValue(const AKey: TKey;
+  out AValue: TValue): Boolean;
+begin
+  FLock.Acquire;
+  try
+    Result := FDictionary.TryGetValue(AKey, AValue);
+  finally
+    FLock.Release;
+  end;
 end;
 
 { TSet<T> }
