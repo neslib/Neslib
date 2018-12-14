@@ -68,15 +68,15 @@ type
   {$IFNDEF AUTOREFCOUNT}
   private
     FRefCount: Integer;
+  public
+    class function NewInstance: TObject; override;
+    procedure BeforeDestruction; override;
+  {$ENDIF}
   protected
     { Allow for implementing interfaces  }
     function QueryInterface(const IID: TGUID; out Obj): HResult; virtual; stdcall;
     function _AddRef: Integer; virtual; stdcall;
     function _Release: Integer; virtual; stdcall;
-  public
-    class function NewInstance: TObject; override;
-    procedure BeforeDestruction; override;
-  {$ENDIF}
   {$ENDREGION 'Internal Declarations'}
   public
     { You should NOT use Free to destroy an object. Use Release instead. }
@@ -285,6 +285,7 @@ end;
 procedure TRefCounted.Release;
 begin
   {$IFNDEF AUTOREFCOUNT}
+  Assert((Self = nil) or (FRefCount > 0));
   if (Self <> nil) and (AtomicDecrement(FRefCount) = 0) then
     Destroy;
   {$ENDIF}
