@@ -1654,6 +1654,7 @@ const
   mIE = $0001;
   mOE = $0008;
 
+{$IFNDEF EXTERNALLINKER}
 {$IF Defined(CPUX86)}
 const
   CWNear = $133F;
@@ -1690,6 +1691,7 @@ begin
   {$WARN SYMBOL_PLATFORM ON}
 end;
 {$ENDIF}
+{$ENDIF}
 
 function InternalTextToDouble(ABuffer: PUTF8Char; out AValue: Double;
   const AFormatSettings: TFormatSettings): Boolean;
@@ -1704,10 +1706,12 @@ const
   CMinus = '-';
 
 var
+  {$IFNDEF EXTERNALLINKER}
   {$IF Defined(CPUX86)}
   LSavedCtrlWord: Word;
   {$ELSEIF Defined(CPUX64)}
   LSavedMXCSR: UInt32;
+  {$ENDIF}
   {$ENDIF}
   LPower: Integer;
   LSign: SmallInt;
@@ -1743,7 +1747,7 @@ var
   begin
     Result := 0;
     while (LCurrChar >= '0') and (LCurrChar <= '9') do
-    begin                              
+    begin
       AOut := AOut * 10;
       AOut := AOut + Ord(LCurrChar) - Ord('0');
 
@@ -1776,6 +1780,7 @@ begin
   Result := False;
   NextChar;
 
+  {$IFNDEF EXTERNALLINKER}
   {$IF Defined(CPUX86)}
   { Prepare the FPU }
   LSavedCtrlWord := Get8087CW;
@@ -1788,6 +1793,7 @@ begin
   TestAndClearSSEExceptions(0);
   SetMXCSR(MXCSRNear);
   {$WARN SYMBOL_PLATFORM ON}
+  {$ENDIF}
   {$ENDIF}
 
   { Skip white spaces }
@@ -1840,6 +1846,7 @@ begin
         AValue := LResult;
         {$ENDIF}
 
+        {$IFNDEF EXTERNALLINKER}
         {$IF Defined(CPUX86)}
         { Final check that everything went OK }
         Result := TestAndClearFPUExceptions(mIE + mOE);
@@ -1847,11 +1854,13 @@ begin
         { Final check that everything went OK }
         Result := TestAndClearSSEExceptions(mIE + mOE);
         {$ENDIF}
+        {$ENDIF}
       end;
     end;
   end;
 
   { Clear Math Exceptions }
+  {$IFNDEF EXTERNALLINKER}
   {$IF Defined(CPUX86)}
   Set8087CW(LSavedCtrlWord);
   {$ELSEIF Defined(CPUX64)}
@@ -1859,6 +1868,7 @@ begin
   SetMXCSR(LSavedMXCSR);
   {$WARN SYMBOL_PLATFORM ON}
   {$ENDIF CPUX64}
+  {$ENDIF}
 end;
 
 function TextToFloat(const AStr: UTF8String; var AValue: Double): Boolean; 
