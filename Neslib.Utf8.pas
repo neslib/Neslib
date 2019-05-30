@@ -1683,9 +1683,11 @@ function TestAndClearSSEExceptions(AExceptionMask: UInt32): Boolean;
 var
   MXCSR: UInt32;
 begin
+  {$WARN SYMBOL_PLATFORM OFF}
   MXCSR := GetMXCSR;
   Result := ((MXCSR and $003F) and AExceptionMask) = 0;
   ResetMXCSR;
+  {$WARN SYMBOL_PLATFORM ON}
 end;
 {$ENDIF}
 
@@ -1781,9 +1783,11 @@ begin
   Set8087CW(CWNear);
   {$ELSEIF Defined(CPUX64)}
   { Prepare the FPU }
+  {$WARN SYMBOL_PLATFORM OFF}
   LSavedMXCSR := GetMXCSR;
   TestAndClearSSEExceptions(0);
   SetMXCSR(MXCSRNear);
+  {$WARN SYMBOL_PLATFORM ON}
   {$ENDIF}
 
   { Skip white spaces }
@@ -1851,7 +1855,9 @@ begin
   {$IF Defined(CPUX86)}
   Set8087CW(LSavedCtrlWord);
   {$ELSEIF Defined(CPUX64)}
+  {$WARN SYMBOL_PLATFORM OFF}
   SetMXCSR(LSavedMXCSR);
+  {$WARN SYMBOL_PLATFORM ON}
   {$ENDIF CPUX64}
 end;
 
