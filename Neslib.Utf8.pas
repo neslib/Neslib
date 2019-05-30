@@ -357,7 +357,9 @@ function Utf8ToUtf16(const ASource: PUTF8Char): String;
 var
   S: PUTF8Char;
 begin
-  Assert(Assigned(ASource));
+  if (ASource = nil) then
+    Exit('');
+
   S := ASource;
 
   { Unroll loop }
