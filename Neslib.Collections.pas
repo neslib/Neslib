@@ -2500,6 +2500,12 @@ begin
   Result := TArrayEnumerator<T>.Create(FItems, FCount);
 end;
 
+{$IF (RTLVersion >= 33)}
+procedure TStack<T>.Grow;
+begin
+  SetLength(FItems, GrowCollection(FCount, FCount + 1));
+end;
+{$ELSE}
 procedure TStack<T>.Grow;
 var
   NewCap: Integer;
@@ -2511,6 +2517,7 @@ begin
     OutOfMemoryError;
   SetLength(FItems, NewCap);
 end;
+{$ENDIF}
 
 procedure TStack<T>.ItemDeleted(const AItem: T);
 begin
