@@ -59,7 +59,7 @@ var
   Value: T;
   I: Integer;
 begin
-  Assert.AreEqual(Length(AExpected), FCUT.Count);
+  Assert.AreEqual<Integer>(Length(AExpected), FCUT.Count);
 
   for I := 0 to Length(AExpected) - 1 do
   begin
@@ -195,7 +195,7 @@ begin
   FillSet;
   C := TEqualityComparer<T>.Default;
   A := FCUT.ToArray;
-  Assert.AreEqual(3, Length(A));
+  Assert.AreEqual<Integer>(3, Length(A));
   B := 0;
   for I := 0 to 2 do
   begin
@@ -368,7 +368,7 @@ var
 begin
   FillSet;
   A := FCUT.ToArray;
-  Assert.AreEqual(3, Length(A));
+  Assert.AreEqual<Integer>(3, Length(A));
   B := 0;
   for I := 0 to 2 do
   begin
@@ -406,8 +406,6 @@ initialization
   TDUnitX.RegisterTestFixture(TTestSet<TTestProc>);
   TDUnitX.RegisterTestFixture(TTestSet<TTestMethod>);
   {$IFNDEF NEXTGEN}
-  TDUnitX.RegisterTestFixture(TTestSet<TStr2>);
-  TDUnitX.RegisterTestFixture(TTestSet<TStr3>);
   TDUnitX.RegisterTestFixture(TTestSet<ShortString>);
   TDUnitX.RegisterTestFixture(TTestSet<AnsiString>);
   TDUnitX.RegisterTestFixture(TTestSet<WideString>);

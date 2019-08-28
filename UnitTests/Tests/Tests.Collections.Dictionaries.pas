@@ -107,8 +107,8 @@ var
   Key: TKey;
   I, Value: Integer;
 begin
-  Assert.AreEqual(Length(AExpectedKeys), FCUT.Count);
-  Assert.AreEqual(Length(AExpectedValues), FCUT.Count);
+  Assert.AreEqual<Integer>(Length(AExpectedKeys), FCUT.Count);
+  Assert.AreEqual<Integer>(Length(AExpectedValues), FCUT.Count);
 
   for I := 0 to Length(AExpectedKeys) - 1 do
   begin
@@ -301,7 +301,7 @@ begin
   FillDictionary;
   C := TEqualityComparer<TKey>.Default;
   A := FCUT.ToArray;
-  Assert.AreEqual(3, Length(A));
+  Assert.AreEqual<Integer>(3, Length(A));
   for I := 0 to 2 do
   begin
     if C.Equals(A[I].Key, FKeys[0]) then
@@ -358,8 +358,8 @@ var
   Value: TValue;
   I, Key: Integer;
 begin
-  Assert.AreEqual(Length(AExpectedKeys), FCUT.Count);
-  Assert.AreEqual(Length(AExpectedValues), FCUT.Count);
+  Assert.AreEqual<Integer>(Length(AExpectedKeys), FCUT.Count);
+  Assert.AreEqual<Integer>(Length(AExpectedValues), FCUT.Count);
 
   for I := 0 to Length(AExpectedKeys) - 1 do
   begin
@@ -559,7 +559,7 @@ var
 begin
   FillDictionary;
   A := FCUT.ToArray;
-  Assert.AreEqual(3, Length(A));
+  Assert.AreEqual<Integer>(3, Length(A));
   for I := 0 to 2 do
   begin
     if (A[I].Key = 10) then
@@ -847,7 +847,7 @@ var
 begin
   FillDictionary;
   A := FCUT.ToArray;
-  Assert.AreEqual(3, Length(A));
+  Assert.AreEqual<Integer>(3, Length(A));
   for I := 0 to 2 do
   begin
     if (A[I].Key.Value = 1) then
@@ -918,8 +918,6 @@ initialization
   TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TTestProc>);
   TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TTestMethod>);
   {$IFNDEF NEXTGEN}
-  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TStr2>);
-  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TStr3>);
   TDUnitX.RegisterTestFixture(TTestDictionaryByKey<ShortString>);
   TDUnitX.RegisterTestFixture(TTestDictionaryByKey<AnsiString>);
   TDUnitX.RegisterTestFixture(TTestDictionaryByKey<WideString>);
@@ -959,8 +957,6 @@ initialization
   TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TTestProc>);
   TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TTestMethod>);
   {$IFNDEF NEXTGEN}
-  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TStr2>);
-  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TStr3>);
   TDUnitX.RegisterTestFixture(TTestDictionaryByValue<ShortString>);
   TDUnitX.RegisterTestFixture(TTestDictionaryByValue<AnsiString>);
   TDUnitX.RegisterTestFixture(TTestDictionaryByValue<WideString>);

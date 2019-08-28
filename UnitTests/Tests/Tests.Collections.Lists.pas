@@ -879,7 +879,7 @@ begin
   Values := CreateValues([2, 3, 5, 8]);
   FCUT.AddRange(Values);
   A := FCUT.ToArray;
-  Assert.AreEqual(FCUT.Count, Length(A));
+  Assert.AreEqual<Integer>(FCUT.Count, Length(A));
   for I := 0 to FCUT.Count - 1 do
     TestEquals(FCUT[I], A[I]);
 end;
@@ -1341,7 +1341,7 @@ begin
   FCUT.Add(2);
   FCUT.Add(1);
   A := FCUT.ToArray;
-  Assert.AreEqual(5, Length(A));
+  Assert.AreEqual<Integer>(5, Length(A));
   Assert.AreEqual(1, A[0]);
   Assert.AreEqual(1, A[1]);
   Assert.AreEqual(2, A[2]);
@@ -1647,8 +1647,6 @@ initialization
   TDUnitX.RegisterTestFixture(TTestList<TTestProc>);
   TDUnitX.RegisterTestFixture(TTestList<TTestMethod>);
   {$IFNDEF NEXTGEN}
-  TDUnitX.RegisterTestFixture(TTestList<TStr2>);
-  TDUnitX.RegisterTestFixture(TTestList<TStr3>);
   TDUnitX.RegisterTestFixture(TTestList<ShortString>);
   TDUnitX.RegisterTestFixture(TTestList<AnsiString>);
   TDUnitX.RegisterTestFixture(TTestList<WideString>);

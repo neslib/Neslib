@@ -60,9 +60,9 @@ var
   Actual: TArray<T>;
   I: Integer;
 begin
-  Assert.AreEqual(Length(AExpected), FCUT.Count);
+  Assert.AreEqual<Integer>(Length(AExpected), FCUT.Count);
   Actual := FCUT.ToArray;
-  Assert.AreEqual(Length(AExpected), Length(Actual));
+  Assert.AreEqual<Integer>(Length(AExpected), Length(Actual));
   for I := 0 to Length(AExpected) - 1 do
     TestEquals(AExpected[I], Actual[I]);
 end;
@@ -246,7 +246,7 @@ begin
   end;
 
   A := CUT.ToArray;
-  Assert.AreEqual(3, Length(A));
+  Assert.AreEqual<Integer>(3, Length(A));
   for I := 0 to 2 do
     TestEquals(A[I], Values[I + 3]);
 
@@ -302,7 +302,7 @@ begin
   end;
 
   A := CUT.ToArray;
-  Assert.AreEqual(9, Length(A));
+  Assert.AreEqual<Integer>(9, Length(A));
   for I := 0 to 8 do
     TestEquals(A[I], Values[I + 5]);
 end;
@@ -316,7 +316,7 @@ var
 begin
   Assert.AreEqual(Length(AExpected), FCUT.Count);
   Actual := FCUT.ToArray;
-  Assert.AreEqual(Length(AExpected), Length(Actual));
+  Assert.AreEqual<Integer>(Length(AExpected), Length(Actual));
   for I := 0 to Length(AExpected) - 1 do
     Assert.AreEqual(AExpected[I], Actual[I].Value);
 end;
@@ -478,7 +478,7 @@ begin
   end;
 
   A := CUT.ToArray;
-  Assert.AreEqual(3, Length(A));
+  Assert.AreEqual<Integer>(3, Length(A));
   for I := 0 to 2 do
     Assert.AreEqual(I + 3, A[I].Value);
 
@@ -534,7 +534,7 @@ begin
   end;
 
   A := CUT.ToArray;
-  Assert.AreEqual(9, Length(A));
+  Assert.AreEqual<Integer>(9, Length(A));
   for I := 0 to 8 do
     Assert.AreEqual(I + 5, A[I].Value);
 end;
@@ -562,8 +562,6 @@ initialization
   TDUnitX.RegisterTestFixture(TTestQueue<TTestProc>);
   TDUnitX.RegisterTestFixture(TTestQueue<TTestMethod>);
   {$IFNDEF NEXTGEN}
-  TDUnitX.RegisterTestFixture(TTestQueue<TStr2>);
-  TDUnitX.RegisterTestFixture(TTestQueue<TStr3>);
   TDUnitX.RegisterTestFixture(TTestQueue<ShortString>);
   TDUnitX.RegisterTestFixture(TTestQueue<AnsiString>);
   TDUnitX.RegisterTestFixture(TTestQueue<WideString>);

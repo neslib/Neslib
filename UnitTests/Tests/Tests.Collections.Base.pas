@@ -36,12 +36,6 @@ type
   TDigits = set of TDigit;
   TTestProc = procedure(const AParam: Integer);
 
-{$IFNDEF NEXTGEN}
-type
-  TStr2 = String[2];
-  TStr3 = String[3];
-{$ENDIF}
-
 type
   TSimpleRecord = record
     A: Integer;
@@ -250,8 +244,6 @@ var
   Foo: TFoo;
   Bar: TBar;
   {$IFNDEF NEXTGEN}
-  Str2: TStr2 absolute Result;
-  Str3: TStr3 absolute Result;
   StrN: ShortString absolute Result;
   AnsiStr: AnsiString absolute Result;
   WideStr: WideString absolute Result;
@@ -313,12 +305,7 @@ begin
 
     {$IFNDEF NEXTGEN}
     tkString:
-      case SizeOf(T) of
-        3: begin Str2[0] := #2; Str2[1] := AnsiChar(AValue); Str2[2] := AnsiChar(AValue shr 8) end;
-        4: begin Str3[0] := #3; Str3[1] := AnsiChar(AValue); Str3[2] := AnsiChar(AValue shr 8); Str3[3] := AnsiChar(AValue shr 16) end;
-      else
-        StrN := ShortString(IntToStr(AValue));
-      end;
+      StrN := ShortString(IntToStr(AValue));
 
     tkLString:
       AnsiStr := AnsiString(IntToStr(AValue));
