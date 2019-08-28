@@ -899,7 +899,7 @@ type
       constructor Create(const AQueue: TQueue<T>);
       function MoveNext: Boolean; override;
     end;
-  private
+  protected
     FItems: TArray<T>;
     FCount: Integer;
     FHead: Integer;
@@ -1181,7 +1181,7 @@ type
   private
     procedure Resize(ANewSize: Integer);
     procedure SetItem(const AKey: TKey; const Value: TValue);
-    procedure DoRemove(AIndex, AMask: Integer);
+    procedure DoRemove(AIndex, AMask: Integer; const ANotify: Boolean = True);
   protected
     { IReadOnlyDictionary<TKey, TValue> }
     function GetItem(const AKey: TKey): TValue;
@@ -3143,7 +3143,8 @@ begin
   FValues.FDictionary := Self;
 end;
 
-procedure TDictionary<TKey, TValue>.DoRemove(AIndex, AMask: Integer);
+procedure TDictionary<TKey, TValue>.DoRemove(AIndex, AMask: Integer;
+  const ANotify: Boolean = True);
 var
   Gap, HC, Bucket: Integer;
   Key: TKey;
@@ -3179,7 +3180,8 @@ begin
   if IsManagedType(TValue) then
     FItems[Gap].Value := Default(TValue);
 
-  ItemDeleted(Key, Value);
+  if (ANotify) then
+    ItemDeleted(Key, Value);
 
   Dec(FCount);
 end;
@@ -3583,7 +3585,7 @@ begin
     begin
       Result.Key := AKey;
       Result.Value := FItems[Index].Value;
-      inherited DoRemove(Index, Mask); { Inherited version doesn't free item }
+      inherited DoRemove(Index, Mask, False);
       Exit;
     end;
 

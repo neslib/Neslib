@@ -13,7 +13,10 @@ uses
   DUnitX.TestFramework,
   Tests.Collections.Base in 'Tests\Tests.Collections.Base.pas',
   Tests.Collections.Lists in 'Tests\Tests.Collections.Lists.pas',
-  Tests.Collections.Dictionaries in 'Tests\Tests.Collections.Dictionaries.pas';
+  Tests.Collections.Dictionaries in 'Tests\Tests.Collections.Dictionaries.pas',
+  Tests.Collections.Queues in 'Tests\Tests.Collections.Queues.pas',
+  Tests.Collections.Stacks in 'Tests\Tests.Collections.Stacks.pas',
+  Tests.Collections.Sets in 'Tests\Tests.Collections.Sets.pas';
 
 var
   runner : ITestRunner;

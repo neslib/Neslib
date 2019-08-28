@@ -4,98 +4,100 @@ interface
 
 uses
   DUnitX.TestFramework,
-  Tests.Collections.Base;
+  System.Generics.Defaults,
+  Tests.Collections.Base,
+  Neslib.Collections;
 
 type
   TTestDictionaryByKey<TKey> = class(TTestCollectionBase<TKey>)
   private type
     TPair = TPair<TKey, Integer>;
   private
-    FCUT: TgrDictionary<TKey, Integer>;
+    FCUT: TDictionary<TKey, Integer>;
     FKeys: TArray<TKey>;
     procedure FillDictionary;
     procedure CheckItems(const AExpectedKeys: TArray<TKey>;
       const AExpectedValues: array of Integer);
-  protected
-    procedure SetUp; override;
-    procedure TearDown; override;
-  published
-    procedure TestAdd;
-    procedure TestRemove;
-    procedure TestClear;
-    procedure TestTryGetValue;
-    procedure TestAddOrSetValue;
-    procedure TestContainsKey;
-    procedure TestContainsValue;
-    procedure TestToArray;
-    procedure TestGetEnumerator;
-    procedure TestGetItem;
-    procedure TestSetItem;
-    procedure TestKeys;
-    procedure TestValues;
+  public
+    [Setup] procedure SetUp;
+    [Teardown] procedure TearDown;
+    [Test] procedure TestAdd;
+    [Test] procedure TestRemove;
+    [Test] procedure TestClear;
+    [Test] procedure TestTryGetValue;
+    [Test] procedure TestAddOrSetValue;
+    [Test] procedure TestContainsKey;
+    [Test] procedure TestContainsValue;
+    [Test] procedure TestToArray;
+    [Test] procedure TestGetEnumerator;
+    [Test] procedure TestGetItem;
+    [Test] procedure TestSetItem;
+    [Test] procedure TestKeys;
+    [Test] procedure TestValues;
   end;
 
-(*type
-  TTestTgrDictionaryByValue<TValue> = class(TBaseTest<TValue>)
+type
+  TTestDictionaryByValue<TValue> = class(TTestCollectionBase<TValue>)
   private type
-    TPair = TgrPair<Integer, TValue>;
+    TPair = TPair<Integer, TValue>;
   private
-    FCUT: TgrDictionary<Integer, TValue>;
+    FCUT: TDictionary<Integer, TValue>;
     FValues: TArray<TValue>;
     procedure FillDictionary;
     procedure CheckItems(const AExpectedKeys: array of Integer;
       const AExpectedValues: TArray<TValue>);
-  protected
-    procedure SetUp; override;
-    procedure TearDown; override;
-  published
-    procedure TestAdd;
-    procedure TestRemove;
-    procedure TestClear;
-    procedure TestTryGetValue;
-    procedure TestAddOrSetValue;
-    procedure TestContainsKey;
-    procedure TestContainsValue;
-    procedure TestToArray;
-    procedure TestGetEnumerator;
-    procedure TestGetItem;
-    procedure TestSetItem;
-    procedure TestKeys;
-    procedure TestValues;
+  public
+    [Setup] procedure SetUp;
+    [Teardown] procedure TearDown;
+    [Test] procedure TestAdd;
+    [Test] procedure TestRemove;
+    [Test] procedure TestClear;
+    [Test] procedure TestTryGetValue;
+    [Test] procedure TestAddOrSetValue;
+    [Test] procedure TestContainsKey;
+    [Test] procedure TestContainsValue;
+    [Test] procedure TestToArray;
+    [Test] procedure TestGetEnumerator;
+    [Test] procedure TestGetItem;
+    [Test] procedure TestSetItem;
+    [Test] procedure TestKeys;
+    [Test] procedure TestValues;
   end;
 
 type
-  TTestTgrObjectDictionary = class(TBaseTest<TFoo>)
+  TTestObjectDictionary = class(TTestCollectionBase<TFoo>)
   private type
-    TPair = TgrPair<TFoo, TBar>;
+    TPair = TPair<TFoo, TBar>;
   private
-    FCUT: TgrObjectDictionary<TFoo, TBar>;
+    FCUT: TObjectDictionary<TFoo, TBar>;
     FKeys: TArray<TFoo>;
     FValues: TArray<TBar>;
     procedure FillDictionary;
     procedure CheckItems(const AExpectedKeysIndices,
       AExpectedValues: array of Integer);
-  protected
-    procedure SetUp; override;
-    procedure TearDown; override;
-  published
-    procedure TestAdd;
-    procedure TestRemove;
-    procedure TestClear;
-    procedure TestTryGetValue;
-    procedure TestAddOrSetValue;
-    procedure TestContainsKey;
-    procedure TestContainsValue;
-    procedure TestToArray;
-    procedure TestGetEnumerator;
-    procedure TestGetItem;
-    procedure TestSetItem;
-    procedure TestKeys;
-    procedure TestValues;
-    procedure TestExtractPair;
-  end;*)
+  public
+    [Setup] procedure SetUp;
+    [Teardown] procedure TearDown;
+    [Test] procedure TestAdd;
+    [Test] procedure TestRemove;
+    [Test] procedure TestClear;
+    [Test] procedure TestTryGetValue;
+    [Test] procedure TestAddOrSetValue;
+    [Test] procedure TestContainsKey;
+    [Test] procedure TestContainsValue;
+    [Test] procedure TestToArray;
+    [Test] procedure TestGetEnumerator;
+    [Test] procedure TestGetItem;
+    [Test] procedure TestSetItem;
+    [Test] procedure TestKeys;
+    [Test] procedure TestValues;
+    [Test] procedure TestExtractPair;
+  end;
 
 implementation
+
+uses
+  System.SysUtils;
 
 { TTestDictionaryByKey<TKey> }
 
@@ -105,14 +107,14 @@ var
   Key: TKey;
   I, Value: Integer;
 begin
-  CheckEquals(Length(AExpectedKeys), FCUT.Count);
-  CheckEquals(Length(AExpectedValues), FCUT.Count);
+  Assert.AreEqual(Length(AExpectedKeys), FCUT.Count);
+  Assert.AreEqual(Length(AExpectedValues), FCUT.Count);
 
   for I := 0 to Length(AExpectedKeys) - 1 do
   begin
     Key := AExpectedKeys[I];
-    CheckTrue(FCUT.TryGetValue(Key, Value));
-    CheckEquals(AExpectedValues[I], Value);
+    Assert.IsTrue(FCUT.TryGetValue(Key, Value));
+    Assert.AreEqual(AExpectedValues[I], Value);
   end;
 end;
 
@@ -127,7 +129,7 @@ end;
 procedure TTestDictionaryByKey<TKey>.SetUp;
 begin
   inherited;
-  FCUT := TgrDictionary<TKey, Integer>.Create;
+  FCUT := TDictionary<TKey, Integer>.Create;
 end;
 
 procedure TTestDictionaryByKey<TKey>.TearDown;
@@ -150,10 +152,10 @@ begin
   FCUT.Add(Keys[0], 10);
   FCUT.Add(Keys[1], 20);
   FCUT.Add(Keys[2], 30);
-  CheckEquals(3, FCUT.Count);
+  Assert.AreEqual(3, FCUT.Count);
 
   FCUT.AddOrSetValue(Keys[1], 40);
-  CheckEquals(3, FCUT.Count);
+  Assert.AreEqual(3, FCUT.Count);
 
   FCUT.AddOrSetValue(Keys[3], 50);
   CheckItems(Keys, [10, 40, 30, 50]);
@@ -162,10 +164,10 @@ end;
 procedure TTestDictionaryByKey<TKey>.TestClear;
 begin
   FillDictionary;
-  CheckEquals(3, FCUT.Count);
+  Assert.AreEqual(3, FCUT.Count);
 
   FCUT.Clear;
-  CheckEquals(0, FCUT.Count);
+  Assert.AreEqual(0, FCUT.Count);
 end;
 
 procedure TTestDictionaryByKey<TKey>.TestContainsKey;
@@ -174,82 +176,82 @@ var
 begin
   FillDictionary;
   RogueKey := CreateValue(3);
-  CheckTrue(FCUT.ContainsKey(FKeys[0]));
-  CheckTrue(FCUT.ContainsKey(FKeys[1]));
-  CheckTrue(FCUT.ContainsKey(FKeys[2]));
-  CheckFalse(FCUT.ContainsKey(RogueKey));
+  Assert.IsTrue(FCUT.ContainsKey(FKeys[0]));
+  Assert.IsTrue(FCUT.ContainsKey(FKeys[1]));
+  Assert.IsTrue(FCUT.ContainsKey(FKeys[2]));
+  Assert.IsFalse(FCUT.ContainsKey(RogueKey));
 end;
 
 procedure TTestDictionaryByKey<TKey>.TestContainsValue;
 begin
   FillDictionary;
-  CheckTrue(FCUT.ContainsValue(10));
-  CheckTrue(FCUT.ContainsValue(20));
-  CheckTrue(FCUT.ContainsValue(30));
-  CheckFalse(FCUT.ContainsValue(40));
+  Assert.IsTrue(FCUT.ContainsValue(10));
+  Assert.IsTrue(FCUT.ContainsValue(20));
+  Assert.IsTrue(FCUT.ContainsValue(30));
+  Assert.IsFalse(FCUT.ContainsValue(40));
 end;
 
 procedure TTestDictionaryByKey<TKey>.TestGetEnumerator;
 var
   Pair: TPair;
   B: Byte;
-  C: TgrEqualityComparer<TKey>;
+  C: IEqualityComparer<TKey>;
 begin
   FillDictionary;
-  TgrGenericFunctions.DefaultEqualityComparer(System.TypeInfo(TKey), SizeOf(TKey), C);
+  C := TEqualityComparer<TKey>.Default;
   B := 0;
   for Pair in FCUT do
   begin
-    if (C.Equals(Pair.Key, FKeys[0], C.Param)) then
+    if (C.Equals(Pair.Key, FKeys[0])) then
     begin
       B := B or $01;
-      CheckEquals(10, Pair.Value)
+      Assert.AreEqual(10, Pair.Value)
     end
-    else if (C.Equals(Pair.Key, FKeys[1], C.Param)) then
+    else if (C.Equals(Pair.Key, FKeys[1])) then
     begin
       B := B or $02;
-      CheckEquals(20, Pair.Value)
+      Assert.AreEqual(20, Pair.Value)
     end
-    else if (C.Equals(Pair.Key, FKeys[2], C.Param)) then
+    else if (C.Equals(Pair.Key, FKeys[2])) then
     begin
       B := B or $04;
-      CheckEquals(30, Pair.Value)
+      Assert.AreEqual(30, Pair.Value)
     end
     else
-      Fail('Unexpected item');
+      Assert.Fail('Unexpected item');
   end;
-  CheckEquals($07, B);
+  Assert.AreEqual<Byte>($07, B);
 end;
 
 procedure TTestDictionaryByKey<TKey>.TestGetItem;
 begin
   FillDictionary;
-  CheckEquals(10, FCUT[FKeys[0]]);
-  CheckEquals(20, FCUT[FKeys[1]]);
-  CheckEquals(30, FCUT[FKeys[2]]);
+  Assert.AreEqual(10, FCUT[FKeys[0]]);
+  Assert.AreEqual(20, FCUT[FKeys[1]]);
+  Assert.AreEqual(30, FCUT[FKeys[2]]);
 end;
 
 procedure TTestDictionaryByKey<TKey>.TestKeys;
 var
   Key: TKey;
   B: Byte;
-  C: TgrEqualityComparer<TKey>;
+  C: IEqualityComparer<TKey>;
 begin
   FillDictionary;
-  TgrGenericFunctions.DefaultEqualityComparer(System.TypeInfo(TKey), SizeOf(TKey), C);
+  C := TEqualityComparer<TKey>.Default;
   B := 0;
   for Key in FCUT.Keys do
   begin
-    if (C.Equals(Key, FKeys[0], C.Param)) then
+    if (C.Equals(Key, FKeys[0])) then
       B := B or $01
-    else if (C.Equals(Key, FKeys[1], C.Param)) then
+    else if (C.Equals(Key, FKeys[1])) then
       B := B or $02
-    else if (C.Equals(Key, FKeys[2], C.Param)) then
+    else if (C.Equals(Key, FKeys[2])) then
       B := B or $04
     else
-      Fail('Unexpected item');
+      Assert.Fail('Unexpected item');
   end;
-  CheckEquals($07, B);
+  Assert.AreEqual<Byte>($07, B);
 end;
 
 procedure TTestDictionaryByKey<TKey>.TestRemove;
@@ -259,27 +261,27 @@ var
 begin
   FillDictionary;
   RogueKey := CreateValue(3);
-  CheckEquals(3, FCUT.Count);
+  Assert.AreEqual(3, FCUT.Count);
 
   FCUT.Remove(RogueKey);
-  CheckEquals(3, FCUT.Count);
+  Assert.AreEqual(3, FCUT.Count);
   CheckItems(FKeys, [10, 20, 30]);
 
   FCUT.Remove(FKeys[0]);
-  CheckEquals(2, FCUT.Count);
+  Assert.AreEqual(2, FCUT.Count);
   SetLength(V, 2);
   V[0] := FKeys[1];
   V[1] := FKeys[2];
   CheckItems(V, [20, 30]);
 
   FCUT.Remove(FKeys[2]);
-  CheckEquals(1, FCUT.Count);
+  Assert.AreEqual(1, FCUT.Count);
   SetLength(V, 1);
   V[0] := FKeys[1];
   CheckItems(V, [20]);
 
   FCUT.Remove(FKeys[1]);
-  CheckEquals(0, FCUT.Count);
+  Assert.AreEqual(0, FCUT.Count);
 end;
 
 procedure TTestDictionaryByKey<TKey>.TestSetItem;
@@ -293,23 +295,23 @@ end;
 procedure TTestDictionaryByKey<TKey>.TestToArray;
 var
   A: TArray<TPair>;
-  C: TgrEqualityComparer<TKey>;
+  C: IEqualityComparer<TKey>;
   I: Integer;
 begin
   FillDictionary;
-  TgrGenericFunctions.DefaultEqualityComparer(System.TypeInfo(TKey), SizeOf(TKey), C);
+  C := TEqualityComparer<TKey>.Default;
   A := FCUT.ToArray;
-  CheckEquals(3, Length(A));
+  Assert.AreEqual(3, Length(A));
   for I := 0 to 2 do
   begin
-    if C.Equals(A[I].Key, FKeys[0], C.Param) then
-      CheckEquals(10, A[I].Value)
-    else if C.Equals(A[I].Key, FKeys[1], C.Param) then
-      CheckEquals(20, A[I].Value)
-    else if C.Equals(A[I].Key, FKeys[2], C.Param) then
-      CheckEquals(30, A[I].Value)
+    if C.Equals(A[I].Key, FKeys[0]) then
+      Assert.AreEqual(10, A[I].Value)
+    else if C.Equals(A[I].Key, FKeys[1]) then
+      Assert.AreEqual(20, A[I].Value)
+    else if C.Equals(A[I].Key, FKeys[2]) then
+      Assert.AreEqual(30, A[I].Value)
     else
-      Fail('Unexpected key in dictionary');
+      Assert.Fail('Unexpected key in dictionary');
   end;
 end;
 
@@ -320,11 +322,11 @@ var
 begin
   FillDictionary;
   RogueKey := CreateValue(3);
-  CheckFalse(FCUT.TryGetValue(RogueKey, Value));
-  CheckEquals(Value, 0);
+  Assert.IsFalse(FCUT.TryGetValue(RogueKey, Value));
+  Assert.AreEqual(Value, 0);
 
-  CheckTrue(FCUT.TryGetValue(FKeys[1], Value));
-  CheckEquals(Value, 20);
+  Assert.IsTrue(FCUT.TryGetValue(FKeys[1], Value));
+  Assert.AreEqual(Value, 20);
 end;
 
 procedure TTestDictionaryByKey<TKey>.TestValues;
@@ -343,31 +345,31 @@ begin
     else if (Value = 30) then
       B := B or $04
     else
-      Fail('Unexpected item');
+      Assert.Fail('Unexpected item');
   end;
-  CheckEquals($07, B);
+  Assert.AreEqual<Byte>($07, B);
 end;
 
-{ TTestTgrDictionaryByValue<TValue> }
+{ TTestDictionaryByValue<TValue> }
 
-procedure TTestTgrDictionaryByValue<TValue>.CheckItems(
+procedure TTestDictionaryByValue<TValue>.CheckItems(
   const AExpectedKeys: array of Integer; const AExpectedValues: TArray<TValue>);
 var
   Value: TValue;
   I, Key: Integer;
 begin
-  CheckEquals(Length(AExpectedKeys), FCUT.Count);
-  CheckEquals(Length(AExpectedValues), FCUT.Count);
+  Assert.AreEqual(Length(AExpectedKeys), FCUT.Count);
+  Assert.AreEqual(Length(AExpectedValues), FCUT.Count);
 
   for I := 0 to Length(AExpectedKeys) - 1 do
   begin
     Key := AExpectedKeys[I];
-    CheckTrue(FCUT.TryGetValue(Key, Value));
+    Assert.IsTrue(FCUT.TryGetValue(Key, Value));
     TestEquals(AExpectedValues[I], Value);
   end;
 end;
 
-procedure TTestTgrDictionaryByValue<TValue>.FillDictionary;
+procedure TTestDictionaryByValue<TValue>.FillDictionary;
 begin
   FValues := CreateValues(3);
   FCUT.Add(10, FValues[0]);
@@ -375,25 +377,25 @@ begin
   FCUT.Add(30, FValues[2]);
 end;
 
-procedure TTestTgrDictionaryByValue<TValue>.SetUp;
+procedure TTestDictionaryByValue<TValue>.SetUp;
 begin
   inherited;
-  FCUT := TgrDictionary<Integer, TValue>.Create;
+  FCUT := TDictionary<Integer, TValue>.Create;
 end;
 
-procedure TTestTgrDictionaryByValue<TValue>.TearDown;
+procedure TTestDictionaryByValue<TValue>.TearDown;
 begin
   FCUT.Free;
   inherited;
 end;
 
-procedure TTestTgrDictionaryByValue<TValue>.TestAdd;
+procedure TTestDictionaryByValue<TValue>.TestAdd;
 begin
   FillDictionary;
   CheckItems([10, 20, 30], FValues);
 end;
 
-procedure TTestTgrDictionaryByValue<TValue>.TestAddOrSetValue;
+procedure TTestDictionaryByValue<TValue>.TestAddOrSetValue;
 var
   Values, NewValues: TArray<TValue>;
 begin
@@ -401,10 +403,10 @@ begin
   FCUT.Add(10, Values[0]);
   FCUT.Add(20, Values[1]);
   FCUT.Add(30, Values[2]);
-  CheckEquals(3, FCUT.Count);
+  Assert.AreEqual(3, FCUT.Count);
 
   FCUT.AddOrSetValue(20, Values[3]);
-  CheckEquals(3, FCUT.Count);
+  Assert.AreEqual(3, FCUT.Count);
 
   FCUT.AddOrSetValue(40, Values[4]);
 
@@ -416,69 +418,69 @@ begin
   CheckItems([10, 20, 30, 40], NewValues);
 end;
 
-procedure TTestTgrDictionaryByValue<TValue>.TestClear;
+procedure TTestDictionaryByValue<TValue>.TestClear;
 begin
   FillDictionary;
-  CheckEquals(3, FCUT.Count);
+  Assert.AreEqual(3, FCUT.Count);
 
   FCUT.Clear;
-  CheckEquals(0, FCUT.Count);
+  Assert.AreEqual(0, FCUT.Count);
 end;
 
-procedure TTestTgrDictionaryByValue<TValue>.TestContainsKey;
+procedure TTestDictionaryByValue<TValue>.TestContainsKey;
 begin
   FillDictionary;
-  CheckTrue(FCUT.ContainsKey(10));
-  CheckTrue(FCUT.ContainsKey(20));
-  CheckTrue(FCUT.ContainsKey(30));
-  CheckFalse(FCUT.ContainsKey(40));
+  Assert.IsTrue(FCUT.ContainsKey(10));
+  Assert.IsTrue(FCUT.ContainsKey(20));
+  Assert.IsTrue(FCUT.ContainsKey(30));
+  Assert.IsFalse(FCUT.ContainsKey(40));
 end;
 
-procedure TTestTgrDictionaryByValue<TValue>.TestContainsValue;
+procedure TTestDictionaryByValue<TValue>.TestContainsValue;
 var
   RogueValue: TValue;
 begin
   FillDictionary;
   RogueValue := CreateValue(3);
-  CheckTrue(FCUT.ContainsValue(FValues[0]));
-  CheckTrue(FCUT.ContainsValue(FValues[1]));
-  CheckTrue(FCUT.ContainsValue(FValues[2]));
-  CheckFalse(FCUT.ContainsValue(RogueValue));
+  Assert.IsTrue(FCUT.ContainsValue(FValues[0]));
+  Assert.IsTrue(FCUT.ContainsValue(FValues[1]));
+  Assert.IsTrue(FCUT.ContainsValue(FValues[2]));
+  Assert.IsFalse(FCUT.ContainsValue(RogueValue));
 end;
 
-procedure TTestTgrDictionaryByValue<TValue>.TestGetEnumerator;
+procedure TTestDictionaryByValue<TValue>.TestGetEnumerator;
 var
   Pair: TPair;
   B: Byte;
-  C: TgrEqualityComparer<TValue>;
+  C: IEqualityComparer<TValue>;
 begin
   FillDictionary;
-  TgrGenericFunctions.DefaultEqualityComparer(System.TypeInfo(TValue), SizeOf(TValue), C);
+  C := TEqualityComparer<TValue>.Default;
   B := 0;
   for Pair in FCUT do
   begin
     if (Pair.Key = 10) then
     begin
       B := B or $01;
-      CheckTrue(C.Equals(Pair.Value, FValues[0], C.Param))
+      Assert.IsTrue(C.Equals(Pair.Value, FValues[0]))
     end
     else if (Pair.Key = 20) then
     begin
       B := B or $02;
-      CheckTrue(C.Equals(Pair.Value, FValues[1], C.Param))
+      Assert.IsTrue(C.Equals(Pair.Value, FValues[1]))
     end
     else if (Pair.Key = 30) then
     begin
       B := B or $04;
-      CheckTrue(C.Equals(Pair.Value, FValues[2], C.Param))
+      Assert.IsTrue(C.Equals(Pair.Value, FValues[2]))
     end
     else
-      Fail('Unexpected item');
+      Assert.Fail('Unexpected item');
   end;
-  CheckEquals($07, B);
+  Assert.AreEqual<Byte>($07, B);
 end;
 
-procedure TTestTgrDictionaryByValue<TValue>.TestGetItem;
+procedure TTestDictionaryByValue<TValue>.TestGetItem;
 begin
   FillDictionary;
   TestEquals(FValues[0], FCUT[10]);
@@ -486,7 +488,7 @@ begin
   TestEquals(FValues[2], FCUT[30]);
 end;
 
-procedure TTestTgrDictionaryByValue<TValue>.TestKeys;
+procedure TTestDictionaryByValue<TValue>.TestKeys;
 var
   Key: Integer;
   B: Byte;
@@ -502,40 +504,40 @@ begin
     else if (Key = 30) then
       B := B or $04
     else
-      Fail('Unexpected item');
+      Assert.Fail('Unexpected item');
   end;
-  CheckEquals($07, B);
+  Assert.AreEqual<Byte>($07, B);
 end;
 
-procedure TTestTgrDictionaryByValue<TValue>.TestRemove;
+procedure TTestDictionaryByValue<TValue>.TestRemove;
 var
   V: TArray<TValue>;
 begin
   FillDictionary;
-  CheckEquals(3, FCUT.Count);
+  Assert.AreEqual(3, FCUT.Count);
 
   FCUT.Remove(40);
-  CheckEquals(3, FCUT.Count);
+  Assert.AreEqual(3, FCUT.Count);
   CheckItems([10, 20, 30], FValues);
 
   FCUT.Remove(10);
-  CheckEquals(2, FCUT.Count);
+  Assert.AreEqual(2, FCUT.Count);
   SetLength(V, 2);
   V[0] := FValues[1];
   V[1] := FValues[2];
   CheckItems([20, 30], V);
 
   FCUT.Remove(30);
-  CheckEquals(1, FCUT.Count);
+  Assert.AreEqual(1, FCUT.Count);
   SetLength(V, 1);
   V[0] := FValues[1];
   CheckItems([20], V);
 
   FCUT.Remove(20);
-  CheckEquals(0, FCUT.Count);
+  Assert.AreEqual(0, FCUT.Count);
 end;
 
-procedure TTestTgrDictionaryByValue<TValue>.TestSetItem;
+procedure TTestDictionaryByValue<TValue>.TestSetItem;
 var
   NewValues: TArray<TValue>;
 begin
@@ -550,16 +552,14 @@ begin
   CheckItems([10, 20, 30], NewValues);
 end;
 
-procedure TTestTgrDictionaryByValue<TValue>.TestToArray;
+procedure TTestDictionaryByValue<TValue>.TestToArray;
 var
   A: TArray<TPair>;
-  C: TgrEqualityComparer<TValue>;
   I: Integer;
 begin
   FillDictionary;
-  TgrGenericFunctions.DefaultEqualityComparer(System.TypeInfo(TValue), SizeOf(TValue), C);
   A := FCUT.ToArray;
-  CheckEquals(3, Length(A));
+  Assert.AreEqual(3, Length(A));
   for I := 0 to 2 do
   begin
     if (A[I].Key = 10) then
@@ -569,70 +569,70 @@ begin
     else if (A[I].Key = 30) then
       TestEquals(FValues[2], A[I].Value)
     else
-      Fail('Unexpected key in dictionary');
+      Assert.Fail('Unexpected key in dictionary');
   end;
 end;
 
-procedure TTestTgrDictionaryByValue<TValue>.TestTryGetValue;
+procedure TTestDictionaryByValue<TValue>.TestTryGetValue;
 var
   Value, NullValue: TValue;
-  C: TgrEqualityComparer<TValue>;
+  C: IEqualityComparer<TValue>;
 begin
   FillDictionary;
-  TgrGenericFunctions.DefaultEqualityComparer(System.TypeInfo(TValue), SizeOf(TValue), C);
+  C := TEqualityComparer<TValue>.Default;
   NullValue := Default(TValue);
 
-  CheckFalse(FCUT.TryGetValue(40, Value));
-  CheckTrue(C.Equals(NullValue, Value, C.Param));
+  Assert.IsFalse(FCUT.TryGetValue(40, Value));
+  Assert.IsTrue(C.Equals(NullValue, Value));
 
-  CheckTrue(FCUT.TryGetValue(20, Value));
-  CheckTrue(C.Equals(FValues[1], Value, C.Param));
+  Assert.IsTrue(FCUT.TryGetValue(20, Value));
+  Assert.IsTrue(C.Equals(FValues[1], Value));
 end;
 
-procedure TTestTgrDictionaryByValue<TValue>.TestValues;
+procedure TTestDictionaryByValue<TValue>.TestValues;
 var
   Value: TValue;
   B: Byte;
-  C: TgrEqualityComparer<TValue>;
+  C: IEqualityComparer<TValue>;
 begin
   FillDictionary;
-  TgrGenericFunctions.DefaultEqualityComparer(System.TypeInfo(TValue), SizeOf(TValue), C);
+  C := TEqualityComparer<TValue>.Default;
   B := 0;
   for Value in FCUT.Values do
   begin
-    if (C.Equals(Value, FValues[0], C.Param)) then
+    if (C.Equals(Value, FValues[0])) then
       B := B or $01
-    else if (C.Equals(Value, FValues[1], C.Param)) then
+    else if (C.Equals(Value, FValues[1])) then
       B := B or $02
-    else if (C.Equals(Value, FValues[2], C.Param)) then
+    else if (C.Equals(Value, FValues[2])) then
       B := B or $04
     else
-      Fail('Unexpected item');
+      Assert.Fail('Unexpected item');
   end;
-  CheckEquals($07, B);
+  Assert.AreEqual<Byte>($07, B);
 end;
 
-{ TTestTgrObjectDictionary }
+{ TTestObjectDictionary }
 
-procedure TTestTgrObjectDictionary.CheckItems(const AExpectedKeysIndices,
+procedure TTestObjectDictionary.CheckItems(const AExpectedKeysIndices,
   AExpectedValues: array of Integer);
 var
   I: Integer;
   Key: TFoo;
   Value: TBar;
 begin
-  CheckEquals(Length(AExpectedKeysIndices), FCUT.Count);
-  CheckEquals(Length(AExpectedValues), FCUT.Count);
+  Assert.AreEqual(Length(AExpectedKeysIndices), FCUT.Count);
+  Assert.AreEqual(Length(AExpectedValues), FCUT.Count);
 
   for I := 0 to Length(AExpectedKeysIndices) - 1 do
   begin
     Key := FKeys[AExpectedKeysIndices[I]];
-    CheckTrue(FCUT.TryGetValue(Key, Value));
-    CheckEquals(AExpectedValues[I], Value.Value);
+    Assert.IsTrue(FCUT.TryGetValue(Key, Value));
+    Assert.AreEqual(AExpectedValues[I], Value.Value);
   end;
 end;
 
-procedure TTestTgrObjectDictionary.FillDictionary;
+procedure TTestObjectDictionary.FillDictionary;
 var
   I: Integer;
 begin
@@ -646,13 +646,13 @@ begin
   end;
 end;
 
-procedure TTestTgrObjectDictionary.SetUp;
+procedure TTestObjectDictionary.SetUp;
 begin
   inherited;
-  FCUT := TgrObjectDictionary<TFoo, TBar>.Create([doOwnsKeys, doOwnsValues]);
+  FCUT := TObjectDictionary<TFoo, TBar>.Create([doOwnsKeys, doOwnsValues]);
 end;
 
-procedure TTestTgrObjectDictionary.TearDown;
+procedure TTestObjectDictionary.TearDown;
 var
   I: Integer;
 begin
@@ -665,21 +665,21 @@ begin
   inherited;
 end;
 
-procedure TTestTgrObjectDictionary.TestAdd;
+procedure TTestObjectDictionary.TestAdd;
 begin
   FillDictionary;
   CheckItems([0, 1, 2], [10, 20, 30]);
 end;
 
-procedure TTestTgrObjectDictionary.TestAddOrSetValue;
+procedure TTestObjectDictionary.TestAddOrSetValue;
 begin
   FillDictionary;
   // 0:1>10, 1:2>20, 2:3>30
-  CheckEquals(3, FCUT.Count);
+  Assert.AreEqual(3, FCUT.Count);
 
   FCUT.AddOrSetValue(FKeys[1], TBar.Create(40));
   // 0:1>10, 1:2>40, 2:3>30
-  CheckEquals(3, FCUT.Count);
+  Assert.AreEqual(3, FCUT.Count);
 
   SetLength(FKeys, 4);
   FKeys[3] := TFoo.Create(4);
@@ -689,64 +689,64 @@ begin
   CheckItems([0, 1, 2, 3], [10, 40, 30, 50]);
 end;
 
-procedure TTestTgrObjectDictionary.TestClear;
+procedure TTestObjectDictionary.TestClear;
 begin
   FillDictionary;
-  CheckEquals(3, FCUT.Count);
+  Assert.AreEqual(3, FCUT.Count);
 
   FCUT.Clear;
-  CheckEquals(0, FCUT.Count);
+  Assert.AreEqual(0, FCUT.Count);
 end;
 
-procedure TTestTgrObjectDictionary.TestContainsKey;
+procedure TTestObjectDictionary.TestContainsKey;
 var
   RogueKey: TFoo;
 begin
   FillDictionary;
   RogueKey := TFoo.Create(5);
-  CheckTrue(FCUT.ContainsKey(FKeys[0]));
-  CheckTrue(FCUT.ContainsKey(FKeys[1]));
-  CheckTrue(FCUT.ContainsKey(FKeys[2]));
-  CheckFalse(FCUT.ContainsKey(RogueKey));
+  Assert.IsTrue(FCUT.ContainsKey(FKeys[0]));
+  Assert.IsTrue(FCUT.ContainsKey(FKeys[1]));
+  Assert.IsTrue(FCUT.ContainsKey(FKeys[2]));
+  Assert.IsFalse(FCUT.ContainsKey(RogueKey));
   RogueKey.Free;
 end;
 
-procedure TTestTgrObjectDictionary.TestContainsValue;
+procedure TTestObjectDictionary.TestContainsValue;
 var
   RogueValue: TBar;
 begin
   FillDictionary;
   RogueValue := TBar.Create(5);
-  CheckTrue(FCUT.ContainsValue(FValues[0]));
-  CheckTrue(FCUT.ContainsValue(FValues[1]));
-  CheckTrue(FCUT.ContainsValue(FValues[2]));
-  CheckFalse(FCUT.ContainsValue(RogueValue));
+  Assert.IsTrue(FCUT.ContainsValue(FValues[0]));
+  Assert.IsTrue(FCUT.ContainsValue(FValues[1]));
+  Assert.IsTrue(FCUT.ContainsValue(FValues[2]));
+  Assert.IsFalse(FCUT.ContainsValue(RogueValue));
   RogueValue.Free;
 end;
 
-procedure TTestTgrObjectDictionary.TestExtractPair;
+procedure TTestObjectDictionary.TestExtractPair;
 var
   RogueKey: TFoo;
-  Pair: TgrPair<TFoo, TBar>;
+  Pair: TPair<TFoo, TBar>;
 begin
   FillDictionary;
   RogueKey := TFoo.Create(5);
 
   Pair := FCUT.ExtractPair(RogueKey);
-  CheckSame(RogueKey, Pair.Key);
-  CheckSame(nil, Pair.Value);
+  Assert.AreSame(RogueKey, Pair.Key);
+  Assert.AreEqual<TBar>(nil, Pair.Value);
   RogueKey.Free;
 
-  CheckTrue(FCUT.ContainsKey(FKeys[1]));
+  Assert.IsTrue(FCUT.ContainsKey(FKeys[1]));
   Pair := FCUT.ExtractPair(FKeys[1]);
-  CheckSame(FKeys[1], Pair.Key);
-  CheckSame(FValues[1], Pair.Value);
-  CheckFalse(FCUT.ContainsKey(FKeys[1]));
+  Assert.AreSame(FKeys[1], Pair.Key);
+  Assert.AreSame(FValues[1], Pair.Value);
+  Assert.IsFalse(FCUT.ContainsKey(FKeys[1]));
   Pair.Key.Free;
   Pair.Value.Free;
 end;
 
-procedure TTestTgrObjectDictionary.TestGetEnumerator;
+procedure TTestObjectDictionary.TestGetEnumerator;
 var
   Pair: TPair;
   B: Byte;
@@ -758,33 +758,33 @@ begin
     if (Pair.Key.Value = 1) then
     begin
       B := B or $01;
-      CheckEquals(10, Pair.Value.Value)
+      Assert.AreEqual(10, Pair.Value.Value)
     end
     else if (Pair.Key.Value = 2) then
     begin
       B := B or $02;
-      CheckEquals(20, Pair.Value.Value)
+      Assert.AreEqual(20, Pair.Value.Value)
     end
     else if (Pair.Key.Value = 3) then
     begin
       B := B or $04;
-      CheckEquals(30, Pair.Value.Value)
+      Assert.AreEqual(30, Pair.Value.Value)
     end
     else
-      Fail('Unexpected item');
+      Assert.Fail('Unexpected item');
   end;
-  CheckEquals($07, B);
+  Assert.AreEqual<Byte>($07, B);
 end;
 
-procedure TTestTgrObjectDictionary.TestGetItem;
+procedure TTestObjectDictionary.TestGetItem;
 begin
   FillDictionary;
-  CheckSame(FValues[0], FCUT[FKeys[0]]);
-  CheckSame(FValues[1], FCUT[FKeys[1]]);
-  CheckSame(FValues[2], FCUT[FKeys[2]]);
+  Assert.AreSame(FValues[0], FCUT[FKeys[0]]);
+  Assert.AreSame(FValues[1], FCUT[FKeys[1]]);
+  Assert.AreSame(FValues[2], FCUT[FKeys[2]]);
 end;
 
-procedure TTestTgrObjectDictionary.TestKeys;
+procedure TTestObjectDictionary.TestKeys;
 var
   Key: TFoo;
   B: Byte;
@@ -800,37 +800,37 @@ begin
     else if (Key.Value = 3) then
       B := B or $04
     else
-      Fail('Unexpected item');
+      Assert.Fail('Unexpected item');
   end;
-  CheckEquals($07, B);
+  Assert.AreEqual<Byte>($07, B);
 end;
 
-procedure TTestTgrObjectDictionary.TestRemove;
+procedure TTestObjectDictionary.TestRemove;
 var
   RogueKey: TFoo;
 begin
   FillDictionary;
-  CheckEquals(3, FCUT.Count);
+  Assert.AreEqual(3, FCUT.Count);
 
   RogueKey := TFoo.Create(5);
   FCUT.Remove(RogueKey);
-  CheckEquals(3, FCUT.Count);
+  Assert.AreEqual(3, FCUT.Count);
   CheckItems([0, 1, 2], [10, 20, 30]);
   RogueKey.Free;
 
   FCUT.Remove(FKeys[0]);
-  CheckEquals(2, FCUT.Count);
+  Assert.AreEqual(2, FCUT.Count);
   CheckItems([1, 2], [20, 30]);
 
   FCUT.Remove(FKeys[2]);
-  CheckEquals(1, FCUT.Count);
+  Assert.AreEqual(1, FCUT.Count);
   CheckItems([1], [20]);
 
   FCUT.Remove(FKeys[1]);
-  CheckEquals(0, FCUT.Count);
+  Assert.AreEqual(0, FCUT.Count);
 end;
 
-procedure TTestTgrObjectDictionary.TestSetItem;
+procedure TTestObjectDictionary.TestSetItem;
 begin
   FillDictionary;
   // 0:1>10, 1:2>20, 2:3>30
@@ -840,42 +840,42 @@ begin
   CheckItems([0, 1, 2], [40, 20, 50]);
 end;
 
-procedure TTestTgrObjectDictionary.TestToArray;
+procedure TTestObjectDictionary.TestToArray;
 var
   A: TArray<TPair>;
   I: Integer;
 begin
   FillDictionary;
   A := FCUT.ToArray;
-  CheckEquals(3, Length(A));
+  Assert.AreEqual(3, Length(A));
   for I := 0 to 2 do
   begin
     if (A[I].Key.Value = 1) then
-      CheckEquals(10, A[I].Value.Value)
+      Assert.AreEqual(10, A[I].Value.Value)
     else if (A[I].Key.Value = 2) then
-      CheckEquals(20, A[I].Value.Value)
+      Assert.AreEqual(20, A[I].Value.Value)
     else if (A[I].Key.Value = 3) then
-      CheckEquals(30, A[I].Value.Value)
+      Assert.AreEqual(30, A[I].Value.Value)
     else
-      Fail('Unexpected key in dictionary');
+      Assert.Fail('Unexpected key in dictionary');
   end;
 end;
 
-procedure TTestTgrObjectDictionary.TestTryGetValue;
+procedure TTestObjectDictionary.TestTryGetValue;
 var
   RogueKey: TFoo;
   Value: TBar;
 begin
   FillDictionary;
   RogueKey := CreateValue(5);
-  CheckFalse(FCUT.TryGetValue(RogueKey, Value));
-  CheckSame(nil, Value);
+  Assert.IsFalse(FCUT.TryGetValue(RogueKey, Value));
+  Assert.AreEqual<TBar>(nil, Value);
 
-  CheckTrue(FCUT.TryGetValue(FKeys[1], Value));
-  CheckEquals(20, Value.Value);
+  Assert.IsTrue(FCUT.TryGetValue(FKeys[1], Value));
+  Assert.AreEqual(20, Value.Value);
 end;
 
-procedure TTestTgrObjectDictionary.TestValues;
+procedure TTestObjectDictionary.TestValues;
 var
   Value: TBar;
   B: Byte;
@@ -891,98 +891,94 @@ begin
     else if (Value.Value = 30) then
       B := B or $04
     else
-      Fail('Unexpected item');
+      Assert.Fail('Unexpected item');
   end;
-  CheckEquals($07, B);
+  Assert.AreEqual<Byte>($07, B);
 end;
 
 initialization
-  grRegisterTests([
-    TTestDictionaryByKey<ShortInt>,
-    {$IFNDEF LIMITED_GENERICS}
-    TTestDictionaryByKey<Byte>,
-    TTestDictionaryByKey<SmallInt>,
-    TTestDictionaryByKey<Word>,
-    TTestDictionaryByKey<Integer>,
-    TTestDictionaryByKey<Cardinal>,
-    TTestDictionaryByKey<Boolean>,
-    TTestDictionaryByKey<TDigit>,
-    TTestDictionaryByKey<TDigits>,
-    TTestDictionaryByKey<Single>,
-    TTestDictionaryByKey<Double>,
-    TTestDictionaryByKey<Extended>,
-    TTestDictionaryByKey<Comp>,
-    TTestDictionaryByKey<Currency>,
-    TTestDictionaryByKey<TFoo>,
-    TTestDictionaryByKey<IBaz>,
-    TTestDictionaryByKey<PInteger>,
-    TTestDictionaryByKey<TTestProc>,
-    TTestDictionaryByKey<TTestMethod>,
-    {$IFNDEF NEXTGEN}
-    TTestDictionaryByKey<TStr1>,
-    TTestDictionaryByKey<TStr2>,
-    TTestDictionaryByKey<TStr3>,
-    TTestDictionaryByKey<ShortString>,
-    TTestDictionaryByKey<AnsiString>,
-    TTestDictionaryByKey<WideString>,
-    TTestDictionaryByKey<AnsiChar>,
-    {$ENDIF}
-    TTestDictionaryByKey<RawByteString>,
-    TTestDictionaryByKey<UnicodeString>,
-    TTestDictionaryByKey<Variant>,
-    TTestDictionaryByKey<Int64>,
-    TTestDictionaryByKey<UInt64>,
-    TTestDictionaryByKey<TBytes>,
-    TTestDictionaryByKey<WideChar>,
-    TTestDictionaryByKey<TTestArray>,
-    TTestDictionaryByKey<TSimpleRecord>,
-    TTestDictionaryByKey<TManagedRecord>,
-    TTestDictionaryByKey<TFooBarRecord>,
-    TTestDictionaryByKey<TManagedArray>,
-    TTestDictionaryByKey<TFooBarArray>,
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<ShortInt>);
+  {$IFNDEF LIMITED_GENERICS}
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<Byte>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<SmallInt>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<Word>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<Integer>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<Cardinal>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<Boolean>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TDigit>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TDigits>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<Single>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<Double>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<Extended>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<Comp>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<Currency>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TFoo>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<IBaz>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<PInteger>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TTestProc>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TTestMethod>);
+  {$IFNDEF NEXTGEN}
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TStr2>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TStr3>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<ShortString>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<AnsiString>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<WideString>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<AnsiChar>);
+  {$ENDIF}
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<RawByteString>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<UnicodeString>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<Variant>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<Int64>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<UInt64>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TBytes>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<WideChar>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TTestArray>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TSimpleRecord>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TManagedRecord>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TFooBarRecord>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TManagedArray>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByKey<TFooBarArray>);
 
-    TTestTgrDictionaryByValue<ShortInt>,
-    TTestTgrDictionaryByValue<Byte>,
-    TTestTgrDictionaryByValue<SmallInt>,
-    TTestTgrDictionaryByValue<Word>,
-    TTestTgrDictionaryByValue<Integer>,
-    TTestTgrDictionaryByValue<Cardinal>,
-    TTestTgrDictionaryByValue<Boolean>,
-    TTestTgrDictionaryByValue<TDigit>,
-    TTestTgrDictionaryByValue<TDigits>,
-    TTestTgrDictionaryByValue<Single>,
-    TTestTgrDictionaryByValue<Double>,
-    TTestTgrDictionaryByValue<Extended>,
-    TTestTgrDictionaryByValue<Comp>,
-    TTestTgrDictionaryByValue<Currency>,
-    TTestTgrDictionaryByValue<TFoo>,
-    TTestTgrDictionaryByValue<IBaz>,
-    TTestTgrDictionaryByValue<PInteger>,
-    TTestTgrDictionaryByValue<TTestProc>,
-    TTestTgrDictionaryByValue<TTestMethod>,
-    {$IFNDEF NEXTGEN}
-    TTestTgrDictionaryByValue<TStr1>,
-    TTestTgrDictionaryByValue<TStr2>,
-    TTestTgrDictionaryByValue<TStr3>,
-    TTestTgrDictionaryByValue<ShortString>,
-    TTestTgrDictionaryByValue<AnsiString>,
-    TTestTgrDictionaryByValue<WideString>,
-    TTestTgrDictionaryByValue<AnsiChar>,
-    {$ENDIF}
-    TTestTgrDictionaryByValue<RawByteString>,
-    TTestTgrDictionaryByValue<UnicodeString>,
-    TTestTgrDictionaryByValue<Variant>,
-    TTestTgrDictionaryByValue<Int64>,
-    TTestTgrDictionaryByValue<UInt64>,
-    TTestTgrDictionaryByValue<TBytes>,
-    TTestTgrDictionaryByValue<WideChar>,
-    TTestTgrDictionaryByValue<TTestArray>,
-    TTestTgrDictionaryByValue<TSimpleRecord>,
-    TTestTgrDictionaryByValue<TManagedRecord>,
-    TTestTgrDictionaryByValue<TFooBarRecord>,
-    TTestTgrDictionaryByValue<TManagedArray>,
-    {$ENDIF !LIMITED_GENERICS}
-    TTestTgrDictionaryByValue<TFooBarArray>,
-    TTestTgrObjectDictionary
-    ]);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<ShortInt>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<Byte>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<SmallInt>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<Word>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<Integer>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<Cardinal>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<Boolean>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TDigit>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TDigits>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<Single>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<Double>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<Extended>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<Comp>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<Currency>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TFoo>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<IBaz>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<PInteger>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TTestProc>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TTestMethod>);
+  {$IFNDEF NEXTGEN}
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TStr2>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TStr3>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<ShortString>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<AnsiString>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<WideString>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<AnsiChar>);
+  {$ENDIF}
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<RawByteString>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<UnicodeString>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<Variant>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<Int64>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<UInt64>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TBytes>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<WideChar>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TTestArray>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TSimpleRecord>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TManagedRecord>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TFooBarRecord>);
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TManagedArray>);
+  {$ENDIF !LIMITED_GENERICS}
+  TDUnitX.RegisterTestFixture(TTestDictionaryByValue<TFooBarArray>);
+  TDUnitX.RegisterTestFixture(TTestObjectDictionary);
 end.
