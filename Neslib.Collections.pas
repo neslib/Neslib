@@ -184,7 +184,7 @@ type
     types in this unit are.
 
     Implements IEnumerable<T>. }
-  TEnumerable<T> = class abstract(TRefCounted, IEnumerable<T>)
+  TEnumerable<T> = class abstract(TNonRefCountedObject, IEnumerable<T>)
   public
     { Copies the elements in the collection to a dynamic array }
     function ToArray: TArray<T>; virtual; abstract;
@@ -303,7 +303,6 @@ type
     function GetCapacity: Integer;
     function GetItem(const AIndex: Integer): T; inline;
   protected
-    procedure ItemAdded(const AItem: T); virtual;
     procedure ItemDeleted(const AItem: T); virtual;
   {$ENDREGION 'Internal Declarations'}
   public
@@ -455,7 +454,7 @@ type
   {$REGION 'Internal Declarations'}
   protected
     function GetItem(const AIndex: Integer): T; inline;
-    procedure SetItem(const AIndex: Integer; const Value: T);
+    procedure SetItem(const AIndex: Integer; const Value: T); virtual;
   {$ENDREGION 'Internal Declarations'}
   public
     { Creates an empty list }
@@ -627,13 +626,13 @@ type
   end;
 
 type
-  { Generic list of TRefCounted objects.
-    The list retains strong references to its items. }
-  TRCList<T: TRefCounted> = class(TList<T>)
+  { Generic list that owns the objects it contains.
+    Similar to Delphi's TObjectList<T>. }
+  TObjectList<T: class> = class(TList<T>)
   {$REGION 'Internal Declarations'}
   protected
-    procedure ItemAdded(const AItem: T); override;
     procedure ItemDeleted(const AItem: T); override;
+    procedure SetItem(const AIndex: Integer; const Value: T); override;
   public
     destructor Destroy; override;
     procedure Clear; override;
@@ -641,11 +640,10 @@ type
   end;
 
 type
-  { Generic sorted list of TRefCounted objects. }
-  TRCSortedList<T: TRefCounted> = class(TSortedList<T>)
+  { A version of TSortedList<T> that owns the objects it contains. }
+  TSortedObjectList<T: class> = class(TSortedList<T>)
   {$REGION 'Internal Declarations'}
   protected
-    procedure ItemAdded(const AItem: T); override;
     procedure ItemDeleted(const AItem: T); override;
   public
     destructor Destroy; override;
@@ -690,7 +688,6 @@ type
     function GetCount: Integer;
     function GetCapacity: Integer;
   protected
-    procedure ItemAdded(const AItem: T); virtual;
     procedure ItemDeleted(const AItem: T); virtual;
   {$ENDREGION 'Internal Declarations'}
   public
@@ -749,24 +746,24 @@ type
   end;
 
 type
-  { Generic stack of TRefCounted objects. }
-  TRCStack<T: TRefCounted> = class(TStack<T>)
+  { Generic stack of that owns its objects.
+    Similar to Delphi's TObjectStack. }
+  TObjectStack<T: class> = class(TStack<T>)
   {$REGION 'Internal Declarations'}
   protected
-    procedure ItemAdded(const AItem: T); override;
     procedure ItemDeleted(const AItem: T); override;
   public
     destructor Destroy; override;
     procedure Clear; override;
   {$ENDREGION 'Internal Declarations'}
   public
-    { Pops a value from the (top of the) stack and releases it. This version
+    { Pops a value from the (top of the) stack and frees it. This version
       does not return any value, because that value could have been freed
       already. Instead, you should use Peek to inspect the value before popping
-      it, or Extract to pop the value without releasing it. }
+      it, or Extract to pop the value without freeing it. }
     procedure Pop;
 
-    { Pops a value from the (top of the) stack @bold(without) releasing it.
+    { Pops a value from the (top of the) stack @bold(without) freeing it.
 
       Returns:
         The popped value. }
@@ -775,7 +772,7 @@ type
 
 type
   { A thread-safe stack }
-  TConcurrentStack<T> = class(TRefCounted)
+  TConcurrentStack<T> = class
   {$REGION 'Internal Declarations'}
   private
     FStack: TStack<T>;
@@ -878,7 +875,6 @@ type
     function GetCount: Integer;
     function GetCapacity: Integer;
   protected
-    procedure ItemAdded(const AItem: T); virtual;
     procedure ItemDeleted(const AItem: T); virtual;
   {$ENDREGION 'Internal Declarations'}
   public
@@ -931,24 +927,24 @@ type
   end;
 
 type
-  { Generic queue of TRefCounted objects. }
-  TRCQueue<T: TRefCounted> = class(TQueue<T>)
+  { Generic queue that owns its object.
+    Similar to Delphi's TObjectQueue. }
+  TObjectQueue<T: class> = class(TQueue<T>)
   {$REGION 'Internal Declarations'}
   protected
-    procedure ItemAdded(const AItem: T); override;
     procedure ItemDeleted(const AItem: T); override;
   public
     destructor Destroy; override;
     procedure Clear; override;
   {$ENDREGION 'Internal Declarations'}
   public
-    { Dequeues a value (removes it from the beginning of the queue) and releases
+    { Dequeues a value (removes it from the beginning of the queue) and frees
       it. This version does not return any value, because that value could have
       been freed already. Instead, you should use Peek to inspect the value
-      before dequeueing it, or Extract to dequeue the value without releasing it. }
+      before dequeueing it, or Extract to dequeue the value without freeing it. }
     procedure Dequeue;
 
-    { Dequeues a value @bold(without) releasing it.
+    { Dequeues a value @bold(without) freeing it.
 
       Returns:
         The dequeued value }
@@ -957,7 +953,7 @@ type
 
 type
   { A thread-safe queue }
-  TConcurrentQueue<T> = class(TRefCounted)
+  TConcurrentQueue<T> = class
   {$REGION 'Internal Declarations'}
   private
     FQueue: TQueue<T>;
@@ -1153,8 +1149,8 @@ type
     function GetItem(const AKey: TKey): TValue;
     function GetCount: Integer;
   protected
-    procedure ItemAdded(const AKey: TKey; const AValue: TValue); virtual;
     procedure ItemDeleted(const AKey: TKey; const AValue: TValue); virtual;
+    procedure ItemReplaced(const AOldValue, ANewValue: TValue); virtual;
   {$ENDREGION 'Internal Declarations'}
   public
     { TEnumerable<T> }
@@ -1283,23 +1279,22 @@ type
 {$SCOPEDENUMS ON}
 
 type
-  { Generic dictionary of TRefCounted keys and/or values.
+  { Generic dictionary that owns its keys and/or values.
+    Similar to Delphi's TObjectDictionary.
 
-    When the dictionary owns keys and/or values, it will automatically release
+    When the dictionary owns keys and/or values, it will automatically free
     them when they are removed from the dictionary unless ExtractPair is used.
 
-    If the dictionary owns its values, and you replace a value using the Items
-    property, then the previous value for that key is released. Likewise,
-    replacing it with AddOrSetValue will also release the previous value. }
-  TRCDictionary<TKey, TValue> = class(TDictionary<TKey, TValue>)
+    If the dictionary owns its keys, and you replace a key using the Items
+    property, then the previous value for that key is freed. Likewise,
+    replacing it with AddOrSetValue will also free the previous value. }
+  TObjectDictionary<TKey, TValue> = class(TDictionary<TKey, TValue>)
   {$REGION 'Internal Declarations'}
   private
     FOwnerships: TDictionaryOwnerships;
-  private
-    class function IsRefCounted<T>: Boolean; static;
   protected
-    procedure ItemAdded(const AKey: TKey; const AValue: TValue); override;
     procedure ItemDeleted(const AKey: TKey; const AValue: TValue); override;
+    procedure ItemReplaced(const AOldValue, ANewValue: TValue); override;
   public
     destructor Destroy; override;
     procedure Clear; override;
@@ -1331,7 +1326,7 @@ type
 
 type
   { A thread-safe dictionary }
-  TConcurrentDictionary<TKey, TValue> = class(TRefCounted)
+  TConcurrentDictionary<TKey, TValue> = class
   {$REGION 'Internal Declarations'}
   private
     FDictionary: TDictionary<TKey, TValue>;
@@ -1502,7 +1497,6 @@ type
     { IReadOnlySet<T> }
     function GetCount: Integer;
   protected
-    procedure ItemAdded(const AItem: T); virtual;
     procedure ItemDeleted(const AItem: T); virtual;
   {$ENDREGION 'Internal Declarations'}
   public
@@ -1567,18 +1561,17 @@ type
   end;
 
 type
-  { A set of TRefCounted objects }
-  TRCSet<T: TRefCounted> = class(TSet<T>)
+  { A set that owns its objects }
+  TObjectSet<T: class> = class(TSet<T>)
   {$REGION 'Internal Declarations'}
   protected
-    procedure ItemAdded(const AItem: T); override;
     procedure ItemDeleted(const AItem: T); override;
   public
     destructor Destroy; override;
     procedure Clear; override;
   {$ENDREGION 'Internal Declarations'}
   public
-    { Removes and returns an item in the set, @bold(without) releasing it.
+    { Removes and returns an item in the set, @bold(without) freeing it.
 
       Parameters:
         AItem: the item to extract and remove.
@@ -1593,14 +1586,16 @@ const
   EMPTY_HASH = -1;
   HASH_MASK = $7FFFFFFF;
 
-type
-  PRefCounted = ^TRefCounted;
-
 resourcestring
-  SRCDictionaryRequiresRefCountedKeys = 'TRCDictionary requires keys derived from TRefCounted';
-  SRCDictionaryRequiresRefCountedValues = 'TRCDictionary requires values derived from TRefCounted';
+  SObjectDictionaryRequiresObjectKeys = 'TObjectDictionary requires object keys';
+  SObjectDictionaryRequiresObjectValues = 'TObjectDictionary requires object values';
+
+type
+  PObject = ^TObject;
 
 function InCircularRange(const ABottom, AItem, ATopInc: Integer): Boolean; inline;
+procedure _ArgumentOutOfRangeError;
+procedure _UnbalancedOperationError;
 {$ENDREGION 'Internal Declarations'}
 
 implementation
@@ -1617,6 +1612,16 @@ begin
     or (ATopInc < ABottom) and (AItem <= ATopInc)
 end;
 
+procedure _ArgumentOutOfRangeError;
+begin
+  raise EArgumentOutOfRangeException.CreateRes(@SArgumentOutOfRange);
+end;
+
+procedure _UnbalancedOperationError;
+begin
+  raise EListError.CreateRes(@SUnbalancedOperation);
+end;
+
 { TArray }
 
 class function TArray.BinarySearch<T>(const AValues: TArray<T>;
@@ -1631,7 +1636,7 @@ begin
     or (AIndex + ACount - 1 > High(AValues)) or (ACount < 0)
     or (AIndex + ACount < 0)
   then
-    raise EArgumentOutOfRangeException.CreateRes(@SArgumentOutOfRange);
+    _ArgumentOutOfRangeError;
   {$ENDIF}
 
   if (ACount = 0) then
@@ -1848,8 +1853,8 @@ end;
 procedure TBaseList<T>.Delete(const AIndex: Integer);
 begin
   {$IFNDEF NO_RANGE_CHECKS}
-  if (AIndex < 0) or (AIndex >= Count) then
-    raise EArgumentOutOfRangeException.CreateRes(@SArgumentOutOfRange);
+  if (Cardinal(AIndex) >= Cardinal(Count)) then
+    _ArgumentOutOfRangeError;
   {$ENDIF}
 
   ItemDeleted(FItems[AIndex]);
@@ -1873,7 +1878,7 @@ begin
   if (AIndex < 0) or (ACount < 0) or (AIndex + ACount > FCount)
     or (AIndex + ACount < 0)
   then
-    raise EArgumentOutOfRangeException.CreateRes(@SArgumentOutOfRange);
+    _ArgumentOutOfRangeError;
   {$ENDIF}
 
   if (ACount = 0) then
@@ -1921,12 +1926,18 @@ end;
 function TBaseList<T>.GetItem(const AIndex: Integer): T;
 begin
   {$IFNDEF NO_RANGE_CHECKS}
-  if (AIndex < 0) or (AIndex >= FCount) then
-    raise EArgumentOutOfRangeException.CreateRes(@SArgumentOutOfRange);
+  if (Cardinal(AIndex) >= Cardinal(Count)) then
+    _ArgumentOutOfRangeError;
   {$ENDIF}
   Result := FItems[AIndex];
 end;
 
+{$IF (RTLVersion >= 33)}
+procedure TBaseList<T>.Grow(const AMinCount: Integer);
+begin
+  SetCapacity(GrowCollection(Length(FItems), AMinCount));
+end;
+{$ELSE}
 procedure TBaseList<T>.Grow(const AMinCount: Integer);
 var
   NewCount: Integer;
@@ -1944,6 +1955,7 @@ begin
   end;
   SetCapacity(NewCount);
 end;
+{$ENDIF}
 
 procedure TBaseList<T>.GrowCheck;
 begin
@@ -1978,11 +1990,6 @@ begin
     Result := IndexOf(AValue)
   else
     Result := LastIndexOf(AValue);
-end;
-
-procedure TBaseList<T>.ItemAdded(const AItem: T);
-begin
-  { No default implementation }
 end;
 
 procedure TBaseList<T>.ItemDeleted(const AItem: T);
@@ -2035,7 +2042,7 @@ procedure TBaseList<T>.SetCount(const Value: Integer);
 begin
   {$IFNDEF NO_RANGE_CHECKS}
   if (Value < 0) then
-    raise EArgumentOutOfRangeException.CreateRes(@SArgumentOutOfRange);
+    _ArgumentOutOfRangeError;
   {$ENDIF}
 
   if (Value > Capacity) then
@@ -2074,7 +2081,6 @@ begin
   Result := FCount;
   FItems[FCount] := AValue;
   Inc(FCount);
-  ItemAdded(AValue);
 end;
 
 procedure TList<T>.AddRange(const AValues: array of T);
@@ -2116,8 +2122,8 @@ end;
 function TList<T>.GetItem(const AIndex: Integer): T;
 begin
   {$IFNDEF NO_RANGE_CHECKS}
-  if (AIndex < 0) or (AIndex >= FCount) then
-    raise EArgumentOutOfRangeException.CreateRes(@SArgumentOutOfRange);
+  if (Cardinal(AIndex) >= Cardinal(FCount)) then
+    _ArgumentOutOfRangeError;
   {$ENDIF}
   Result := FItems[AIndex];
 end;
@@ -2125,8 +2131,8 @@ end;
 procedure TList<T>.Insert(const AIndex: Integer; const AValue: T);
 begin
   {$IFNDEF NO_RANGE_CHECKS}
-  if (AIndex < 0) or (AIndex > FCount) then
-    raise EArgumentOutOfRangeException.CreateRes(@SArgumentOutOfRange);
+  if (Cardinal(AIndex) > Cardinal(FCount)) then
+    _ArgumentOutOfRangeError;
   {$ENDIF}
 
   GrowCheck;
@@ -2137,7 +2143,6 @@ begin
   end;
   FItems[AIndex] := AValue;
   Inc(FCount);
-  ItemAdded(AValue);
 end;
 
 procedure TList<T>.InsertRange(const AIndex: Integer;
@@ -2146,8 +2151,8 @@ var
   I: Integer;
 begin
   {$IFNDEF NO_RANGE_CHECKS}
-  if (AIndex < 0) or (AIndex > Count) then
-    raise EArgumentOutOfRangeException.CreateRes(@SArgumentOutOfRange);
+  if (Cardinal(AIndex) > Cardinal(Count)) then
+    _ArgumentOutOfRangeError;
   {$ENDIF}
 
   GrowCheck(FCount + Length(AValues));
@@ -2158,10 +2163,7 @@ begin
   end;
 
   for I := 0 to Length(AValues) - 1 do
-  begin
     FItems[AIndex + I] := AValues[I];
-    ItemAdded(AValues[I]);
-  end;
 
   Inc(FCount, Length(AValues));
 end;
@@ -2188,8 +2190,8 @@ begin
     Exit;
 
   {$IFNDEF NO_RANGE_CHECKS}
-  if (ANewIndex < 0) or (ANewIndex >= FCount) then
-    raise EArgumentOutOfRangeException.CreateRes(@SArgumentOutOfRange);
+  if (Cardinal(ANewIndex) >= Cardinal(FCount)) then
+    _ArgumentOutOfRangeError;
   {$ENDIF}
 
   Temp := FItems[ACurIndex];
@@ -2221,19 +2223,13 @@ begin
 end;
 
 procedure TList<T>.SetItem(const AIndex: Integer; const Value: T);
-var
-  Orig: T;
 begin
   {$IFNDEF NO_RANGE_CHECKS}
-  if (AIndex < 0) or (AIndex >= FCount) then
-    raise EArgumentOutOfRangeException.CreateRes(@SArgumentOutOfRange);
+  if (Cardinal(AIndex) >= Cardinal(FCount)) then
+    _ArgumentOutOfRangeError;
   {$ENDIF}
 
-  Orig := FItems[AIndex];
   FItems[AIndex] := Value;
-
-  ItemAdded(Value);
-  ItemDeleted(Orig);
 end;
 
 procedure TList<T>.Sort;
@@ -2273,7 +2269,6 @@ begin
   end;
   FItems[Result] := AValue;
   Inc(FCount);
-  ItemAdded(AValue);
 end;
 
 procedure TSortedList<T>.AddRange(const AValues: array of T);
@@ -2323,64 +2318,71 @@ end;
 function TSortedList<T>.GetItem(const AIndex: Integer): T;
 begin
   {$IFNDEF NO_RANGE_CHECKS}
-  if (AIndex < 0) or (AIndex >= FCount) then
-    raise EArgumentOutOfRangeException.CreateRes(@SArgumentOutOfRange);
+  if (Cardinal(AIndex) >= Cardinal(FCount)) then
+    _ArgumentOutOfRangeError;
   {$ENDIF}
   Result := FItems[AIndex];
 end;
 
-{ TRCList<T> }
+{ TObjectList<T> }
 
-procedure TRCList<T>.Clear;
+procedure TObjectList<T>.Clear;
 var
   I: Integer;
 begin
   for I := 0 to FCount - 1 do
-    FItems[I].Release;
+    FItems[I].Free;
   inherited;
 end;
 
-destructor TRCList<T>.Destroy;
+destructor TObjectList<T>.Destroy;
 begin
   Clear;
   inherited;
 end;
 
-procedure TRCList<T>.ItemAdded(const AItem: T);
+procedure TObjectList<T>.ItemDeleted(const AItem: T);
 begin
-  AItem.Retain;
+  AItem.Free;
 end;
 
-procedure TRCList<T>.ItemDeleted(const AItem: T);
+procedure TObjectList<T>.SetItem(const AIndex: Integer; const Value: T);
+var
+  Orig: T;
 begin
-  AItem.Release;
+  {$IFNDEF NO_RANGE_CHECKS}
+  if (Cardinal(AIndex) >= Cardinal(FCount)) then
+    _ArgumentOutOfRangeError;
+  {$ENDIF}
+
+  Orig := FItems[AIndex];
+  if (Orig <> Value) then
+  begin
+    Orig.Free;
+    FItems[AIndex] := Value;
+  end;
 end;
 
-{ TRCSortedList<T> }
+{ TSortedObjectList<T> }
 
-procedure TRCSortedList<T>.Clear;
+procedure TSortedObjectList<T>.Clear;
 var
   I: Integer;
 begin
   for I := 0 to FCount - 1 do
-    FItems[I].Release;
+    FItems[I].Free;
   inherited;
 end;
 
-destructor TRCSortedList<T>.Destroy;
+destructor TSortedObjectList<T>.Destroy;
 begin
   Clear;
   inherited;
 end;
 
-procedure TRCSortedList<T>.ItemAdded(const AItem: T);
+procedure TSortedObjectList<T>.ItemDeleted(const AItem: T);
 begin
-  AItem.Retain;
-end;
-
-procedure TRCSortedList<T>.ItemDeleted(const AItem: T);
-begin
-  AItem.Release;
+  AItem.Free;
 end;
 
 { TStack<T> }
@@ -2418,11 +2420,6 @@ begin
   SetLength(FItems, NewCap);
 end;
 
-procedure TStack<T>.ItemAdded(const AItem: T);
-begin
-  { No default implementation }
-end;
-
 procedure TStack<T>.ItemDeleted(const AItem: T);
 begin
   { No default implementation }
@@ -2432,7 +2429,7 @@ function TStack<T>.Peek: T;
 begin
   {$IFNDEF NO_RANGE_CHECKS}
   if (FCount = 0) then
-    raise EListError.CreateRes(@SUnbalancedOperation);
+    _UnbalancedOperationError;
   {$ENDIF}
 
   Result := FItems[FCount - 1];
@@ -2442,7 +2439,7 @@ function TStack<T>.Pop: T;
 begin
   {$IFNDEF NO_RANGE_CHECKS}
   if (FCount = 0) then
-    raise EListError.CreateRes(@SUnbalancedOperation);
+    _UnbalancedOperationError;
   {$ENDIF}
 
   Dec(FCount);
@@ -2460,14 +2457,13 @@ begin
 
   FItems[FCount] := AValue;
   Inc(FCount);
-  ItemAdded(AValue);
 end;
 
 procedure TStack<T>.SetCapacity(const Value: Integer);
 begin
   {$IFNDEF NO_RANGE_CHECKS}
   if (Value < FCount) then
-    raise EArgumentOutOfRangeException.CreateRes(@SArgumentOutOfRange);
+    _ArgumentOutOfRangeError;
   {$ENDIF}
 
   SetLength(FItems, Value);
@@ -2504,26 +2500,26 @@ begin
   Result := True;
 end;
 
-{ TRCStack<T> }
+{ TObjectStack<T> }
 
-procedure TRCStack<T>.Clear;
+procedure TObjectStack<T>.Clear;
 begin
   while (FCount > 0) do
-    Pop;
+    inherited Pop;
   inherited;
 end;
 
-destructor TRCStack<T>.Destroy;
+destructor TObjectStack<T>.Destroy;
 begin
   Clear;
   inherited;
 end;
 
-function TRCStack<T>.Extract: T;
+function TObjectStack<T>.Extract: T;
 begin
   {$IFNDEF NO_RANGE_CHECKS}
   if (FCount = 0) then
-    raise EListError.CreateRes(@SUnbalancedOperation);
+    _UnbalancedOperationError;
   {$ENDIF}
 
   Dec(FCount);
@@ -2533,17 +2529,12 @@ begin
     FItems[FCount] := Default(T);
 end;
 
-procedure TRCStack<T>.ItemAdded(const AItem: T);
+procedure TObjectStack<T>.ItemDeleted(const AItem: T);
 begin
-  AItem.Retain;
+  AItem.Free;
 end;
 
-procedure TRCStack<T>.ItemDeleted(const AItem: T);
-begin
-  AItem.Release;
-end;
-
-procedure TRCStack<T>.Pop;
+procedure TObjectStack<T>.Pop;
 begin
   inherited Pop;
 end;
@@ -2570,7 +2561,7 @@ end;
 destructor TConcurrentStack<T>.Destroy;
 begin
   FLock.Free;
-  FStack.Release;
+  FStack.Free;
   inherited;
 end;
 
@@ -2639,7 +2630,7 @@ function TQueue<T>.Dequeue: T;
 begin
   {$IFNDEF NO_RANGE_CHECKS}
   if (FCount = 0) then
-    raise EListError.CreateRes(@SUnbalancedOperation);
+    _UnbalancedOperationError;
   {$ENDIF}
 
   Result := FItems[FTail];
@@ -2659,7 +2650,6 @@ begin
   FItems[FHead] := AValue;
   FHead := (FHead + 1) and FMask;
   Inc(FCount);
-  ItemAdded(AValue);
 end;
 
 function TQueue<T>.GetCapacity: Integer;
@@ -2689,11 +2679,6 @@ begin
   SetCapacity(NewCap);
 end;
 
-procedure TQueue<T>.ItemAdded(const AItem: T);
-begin
-  { No default implementation }
-end;
-
 procedure TQueue<T>.ItemDeleted(const AItem: T);
 begin
   { No default implementation }
@@ -2703,7 +2688,7 @@ function TQueue<T>.Peek: T;
 begin
   {$IFNDEF NO_RANGE_CHECKS}
   if (FCount = 0) then
-    raise EListError.CreateRes(@SUnbalancedOperation);
+    _UnbalancedOperationError;
   {$ENDIF}
 
   Result := FItems[FTail];
@@ -2819,33 +2804,32 @@ begin
     Inc(FIndex);
 end;
 
-{ TRCQueue<T> }
+{ TObjectQueue<T> }
 
-procedure TRCQueue<T>.Clear;
+procedure TObjectQueue<T>.Clear;
 begin
   while (FCount > 0) do
-    Dequeue;
+    inherited Dequeue;
   inherited;
 end;
 
-procedure TRCQueue<T>.Dequeue;
+procedure TObjectQueue<T>.Dequeue;
 begin
   inherited Dequeue;
 end;
 
-destructor TRCQueue<T>.Destroy;
+destructor TObjectQueue<T>.Destroy;
 begin
   Clear;
   inherited;
 end;
 
-function TRCQueue<T>.Extract: T;
+function TObjectQueue<T>.Extract: T;
 begin
   {$IFNDEF NO_RANGE_CHECKS}
   if (FCount = 0) then
-    raise EListError.CreateRes(@SUnbalancedOperation);
+    _UnbalancedOperationError;
   {$ENDIF}
-
   Result := FItems[FTail];
 
   if IsManagedType(T) then
@@ -2855,14 +2839,9 @@ begin
   Dec(FCount);
 end;
 
-procedure TRCQueue<T>.ItemAdded(const AItem: T);
+procedure TObjectQueue<T>.ItemDeleted(const AItem: T);
 begin
-  AItem.Retain;
-end;
-
-procedure TRCQueue<T>.ItemDeleted(const AItem: T);
-begin
-  AItem.Release;
+  AItem.Free;
 end;
 
 { TConcurrentQueue<T> }
@@ -2897,7 +2876,7 @@ end;
 destructor TConcurrentQueue<T>.Destroy;
 begin
   FLock.Free;
-  FQueue.Release;
+  FQueue.Free;
   inherited;
 end;
 
@@ -2968,7 +2947,6 @@ begin
   FItems[Index].Key := AKey;
   FItems[Index].Value := AValue;
   Inc(FCount);
-  ItemAdded(AKey, AValue);
 end;
 
 procedure TDictionary<TKey, TValue>.AddOrSetValue(const AKey: TKey;
@@ -2996,8 +2974,7 @@ begin
     begin
       OldValue := FItems[Index].Value;
       FItems[Index].Value := AValue;
-      ItemAdded(AKey, AValue);
-      ItemDeleted(AKey, OldValue);
+      ItemReplaced(OldValue, AValue);
       Exit;
     end;
 
@@ -3008,7 +2985,6 @@ begin
   FItems[Index].Key := AKey;
   FItems[Index].Value := AValue;
   Inc(FCount);
-  ItemAdded(AKey, AValue);
 end;
 
 procedure TDictionary<TKey, TValue>.Clear;
@@ -3152,14 +3128,14 @@ begin
   raise EListError.CreateRes(@SGenericItemNotFound);
 end;
 
-procedure TDictionary<TKey, TValue>.ItemAdded(const AKey: TKey;
+procedure TDictionary<TKey, TValue>.ItemDeleted(const AKey: TKey;
   const AValue: TValue);
 begin
   { No default implementation }
 end;
 
-procedure TDictionary<TKey, TValue>.ItemDeleted(const AKey: TKey;
-  const AValue: TValue);
+procedure TDictionary<TKey, TValue>.ItemReplaced(const AOldValue,
+  ANewValue: TValue);
 begin
   { No default implementation }
 end;
@@ -3243,8 +3219,7 @@ begin
     begin
       OldValue := FItems[Index].Value;
       FItems[Index].Value := Value;
-      ItemAdded(AKey, Value);
-      ItemDeleted(AKey, OldValue);
+      ItemReplaced(OldValue, Value);
       Exit;
     end;
 
@@ -3429,9 +3404,9 @@ begin
   Result := False;
 end;
 
-{ TRCDictionary<TKey, TValue> }
+{ TObjectDictionary<TKey, TValue> }
 
-procedure TRCDictionary<TKey, TValue>.Clear;
+procedure TObjectDictionary<TKey, TValue>.Clear;
 var
   I: Integer;
   Key: TKey;
@@ -3442,8 +3417,8 @@ begin
   begin
     OldItems := FItems;
 
-    { Clear dictionary BEFORE releasing items. This prevents any changes to
-      the dictionary as a result releasing an item (for example, if the
+    { Clear dictionary BEFORE freeing items. This prevents any changes to
+      the dictionary as a result freeint an item (for example, if the
       destructor of an item attempts to change the dictionary it is in). }
     inherited;
 
@@ -3454,13 +3429,13 @@ begin
         if (doOwnsKeys in FOwnerships) then
         begin
           Key := OldItems[I].Key;
-          PRefCounted(@Key)^.Release;
+          PObject(@Key)^.Free;
         end;
 
         if (doOwnsValues in FOwnerships) then
         begin
           Value := OldItems[I].Value;
-          PRefCounted(@Value)^.Release;
+          PObject(@Value)^.Free;
         end;
       end;
     end;
@@ -3469,24 +3444,24 @@ begin
     inherited;
 end;
 
-constructor TRCDictionary<TKey, TValue>.Create(
+constructor TObjectDictionary<TKey, TValue>.Create(
   const AOwnerships: TDictionaryOwnerships);
 begin
-  if (doOwnsKeys in AOwnerships) and (not IsRefCounted<TKey>) then
-    raise EListError.CreateRes(@SRCDictionaryRequiresRefCountedKeys);
-  if (doOwnsValues in AOwnerships) and (not IsRefCounted<TValue>) then
-    raise EListError.CreateRes(@SRCDictionaryRequiresRefCountedValues);
+  if (doOwnsKeys in AOwnerships) and (GetTypeKind(TKey) <> tkClass) then
+    raise EListError.CreateRes(@SObjectDictionaryRequiresObjectKeys);
+  if (doOwnsValues in AOwnerships) and (GetTypeKind(TValue) <> tkClass) then
+    raise EListError.CreateRes(@SObjectDictionaryRequiresObjectValues);
   inherited Create;
   FOwnerships := AOwnerships;
 end;
 
-destructor TRCDictionary<TKey, TValue>.Destroy;
+destructor TObjectDictionary<TKey, TValue>.Destroy;
 begin
   Clear;
   inherited;
 end;
 
-function TRCDictionary<TKey, TValue>.ExtractPair(
+function TObjectDictionary<TKey, TValue>.ExtractPair(
   const AKey: TKey): TPair<TKey, TValue>;
 var
   Mask, Index, HashCode, HC: Integer;
@@ -3524,37 +3499,21 @@ begin
   end;
 end;
 
-class function TRCDictionary<TKey, TValue>.IsRefCounted<T>: Boolean;
-var
-  Info: PTypeInfo;
-  Data: PTypeData;
-begin
-  if (GetTypeKind(T) <> tkClass) then
-    Exit(False);
-
-  Info := TypeInfo(T);
-  Data := GetTypeData(Info);
-  Result := Data.ClassType.InheritsFrom(TRefCounted);
-end;
-
-procedure TRCDictionary<TKey, TValue>.ItemAdded(const AKey: TKey;
+procedure TObjectDictionary<TKey, TValue>.ItemDeleted(const AKey: TKey;
   const AValue: TValue);
 begin
   if (doOwnsKeys in FOwnerships) then
-    PRefCounted(@AKey)^.Retain;
+    PObject(@AKey)^.Free;
 
   if (doOwnsValues in FOwnerships) then
-    PRefCounted(@AValue)^.Retain;
+    PObject(@AValue)^.Free;
 end;
 
-procedure TRCDictionary<TKey, TValue>.ItemDeleted(const AKey: TKey;
-  const AValue: TValue);
+procedure TObjectDictionary<TKey, TValue>.ItemReplaced(const AOldValue,
+  ANewValue: TValue);
 begin
-  if (doOwnsKeys in FOwnerships) then
-    PRefCounted(@AKey)^.Release;
-
-  if (doOwnsValues in FOwnerships) then
-    PRefCounted(@AValue)^.Release;
+  if (doOwnsValues in FOwnerships) and (PPointer(@AOldValue)^ <> PPointer(@ANewValue)^) then
+    PObject(@AOldValue)^.Free;
 end;
 
 { TConcurrentDictionary<TKey, TValue> }
@@ -3629,7 +3588,7 @@ end;
 destructor TConcurrentDictionary<TKey, TValue>.Destroy;
 begin
   FLock.Free;
-  FDictionary.Release;
+  FDictionary.Free;
   inherited;
 end;
 
@@ -3703,7 +3662,6 @@ begin
   FItems[Index].HashCode := HashCode;
   FItems[Index].Item := AItem;
   Inc(FCount);
-  ItemAdded(AItem);
 end;
 
 function TSet<T>.AddOrSet(const AItem: T): T;
@@ -3735,7 +3693,6 @@ begin
   FItems[Index].Item := AItem;
   Inc(FCount);
   Result := AItem;
-  ItemAdded(AItem);
 end;
 
 procedure TSet<T>.Clear;
@@ -3819,11 +3776,6 @@ end;
 function TSet<T>.GetEnumerator: TEnumerator<T>;
 begin
   Result := TSetEnumerator.Create(FItems);
-end;
-
-procedure TSet<T>.ItemAdded(const AItem: T);
-begin
-  { No default implementation }
 end;
 
 procedure TSet<T>.ItemDeleted(const AItem: T);
@@ -3931,27 +3883,27 @@ begin
   Result := False;
 end;
 
-{ TRCSet<T> }
+{ TObjectSet<T> }
 
-procedure TRCSet<T>.Clear;
+procedure TObjectSet<T>.Clear;
 var
   I: Integer;
 begin
   for I := 0 to Length(FItems) - 1 do
   begin
     if (FItems[I].HashCode <> EMPTY_HASH) then
-      FItems[I].Item.Release;
+      FItems[I].Item.Free;
   end;
   inherited;
 end;
 
-destructor TRCSet<T>.Destroy;
+destructor TObjectSet<T>.Destroy;
 begin
   Clear;
   inherited;
 end;
 
-function TRCSet<T>.Extract(const AItem: T): T;
+function TObjectSet<T>.Extract(const AItem: T): T;
 var
   Mask, Index, HashCode, HC: Integer;
 begin
@@ -3985,14 +3937,9 @@ begin
   end;
 end;
 
-procedure TRCSet<T>.ItemAdded(const AItem: T);
+procedure TObjectSet<T>.ItemDeleted(const AItem: T);
 begin
-  AItem.Retain;
-end;
-
-procedure TRCSet<T>.ItemDeleted(const AItem: T);
-begin
-  AItem.Release;
+  AItem.Free;
 end;
 
 end.
