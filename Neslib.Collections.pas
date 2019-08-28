@@ -637,6 +637,25 @@ type
     destructor Destroy; override;
     procedure Clear; override;
   {$ENDREGION 'Internal Declarations'}
+  public
+    { Extracts an item from this list, @bold(without) freeing it.
+
+      Parameters:
+        AValue: the item to extract
+
+      Returns:
+        AValue if the item was in the list, or Default(T) otherwise. }
+    function Extract(const AValue: T): T;
+
+    { Extracts an item from this list, @bold(without) freeing it.
+
+      Parameters:
+        AValue: the item to extract
+        ADirection: the direction to search for the item
+
+      Returns:
+        AValue if the item was in the list, or Default(T) otherwise. }
+    function ExtractItem(const AValue: T; const ADirection: TDirection): T;
   end;
 
 type
@@ -649,6 +668,25 @@ type
     destructor Destroy; override;
     procedure Clear; override;
   {$ENDREGION 'Internal Declarations'}
+  public
+    { Extracts an item from this list, @bold(without) freeing it.
+
+      Parameters:
+        AValue: the item to extract
+
+      Returns:
+        AValue if the item was in the list, or Default(T) otherwise. }
+    function Extract(const AValue: T): T;
+
+    { Extracts an item from this list, @bold(without) freeing it.
+
+      Parameters:
+        AValue: the item to extract
+        ADirection: the direction to search for the item
+
+      Returns:
+        AValue if the item was in the list, or Default(T) otherwise. }
+    function ExtractItem(const AValue: T; const ADirection: TDirection): T;
   end;
 
 type
@@ -2341,6 +2379,33 @@ begin
   inherited;
 end;
 
+function TObjectList<T>.Extract(const AValue: T): T;
+begin
+  Result := ExtractItem(AValue, TDirection.FromBeginning);
+end;
+
+function TObjectList<T>.ExtractItem(const AValue: T;
+  const ADirection: TDirection): T;
+var
+  Index: Integer;
+begin
+  Index := IndexOfItem(AValue, ADirection);
+  if (Index < 0) then
+    Exit(Default(T));
+
+  Result := FItems[Index];
+
+  if IsManagedType(T) then
+    FItems[Index] := Default(T);
+
+  Dec(FCount);
+  if (Index <> Count) then
+  begin
+    TArray.Move<T>(FItems, Index + 1, Index, FCount - Index);
+    TArray.Finalize<T>(FItems, Count);
+  end;
+end;
+
 procedure TObjectList<T>.ItemDeleted(const AItem: T);
 begin
   AItem.Free;
@@ -2378,6 +2443,33 @@ destructor TSortedObjectList<T>.Destroy;
 begin
   Clear;
   inherited;
+end;
+
+function TSortedObjectList<T>.Extract(const AValue: T): T;
+begin
+  Result := ExtractItem(AValue, TDirection.FromBeginning);
+end;
+
+function TSortedObjectList<T>.ExtractItem(const AValue: T;
+  const ADirection: TDirection): T;
+var
+  Index: Integer;
+begin
+  Index := IndexOfItem(AValue, ADirection);
+  if (Index < 0) then
+    Exit(Default(T));
+
+  Result := FItems[Index];
+
+  if IsManagedType(T) then
+    FItems[Index] := Default(T);
+
+  Dec(FCount);
+  if (Index <> Count) then
+  begin
+    TArray.Move<T>(FItems, Index + 1, Index, FCount - Index);
+    TArray.Finalize<T>(FItems, Count);
+  end;
 end;
 
 procedure TSortedObjectList<T>.ItemDeleted(const AItem: T);
