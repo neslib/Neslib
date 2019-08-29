@@ -118,6 +118,152 @@ type
       const AItem4: T4);
   end;
 
+type
+  { An atomic value. Can be read, written or updated atomically.
+    Modeled after std::atomic<>, supporting only relaxed memory ordering.
+
+    Only works with basic types that are 1, 2, 4 or 8 bytes in size (eg.
+    all integer types, Boolean, Char, Single, Double, TPoint etc.).
+    Uses assertions to check this.
+
+    For better performance, use one of the specialized version (like
+    TAtomicInteger) instead of this generic version. }
+  TAtomic<T: record> = record
+  {$REGION 'Internal Declarations'}
+  private
+    [volatile] FValue: T;
+  {$ENDREGION 'Internal Declarations'}
+  public
+    { Creates an atomic value }
+    constructor Create(const AValue: T);
+
+    { Atomically loads and returns the value.
+
+      On some platforms, this requires that this value is properly aligned (eg.
+      a TAtomic<Integer> should be aligned on a 4-byte boundary). When using
+      atomic values as fields in a class, Delphi will automatically align them
+      properly. }
+    function Load: T; inline;
+
+    { Atomically replaces the current value with the given new value.
+
+      On some platforms, this requires that this value is properly aligned (eg.
+      a TAtomic<Integer> should be aligned on a 4-byte boundary). When using
+      atomic values as fields in a class, Delphi will automatically align them
+      properly. }
+    procedure Store(const ANewValue: T); inline;
+
+    { Atomically replaces the current value with the given new value, and
+      returns the original value. }
+    function Exchange(const ANewValue: T): T; inline;
+
+    { Compares this value to AExpected and, only if they are the same, sets
+      this value to ANewValue. Always returns the original value.
+
+      If the ASucceeded parameter is given, it will be set to True if the new
+      value was set (even if ANewValue is the same as the current value). }
+    function CompareExchange(const ANewValue, AExpected: T): T; overload; inline;
+    function CompareExchange(const ANewValue, AExpected: T;
+      out ASucceeded: Boolean): T; overload; inline;
+
+    { Atomically increments the value (with an optional AIncrement) and returns
+      the new value.
+
+      Only meaningful when T is an integral type. Results will be undefined (and
+      may lead to crashes) if this is not the case). }
+    function Increment: T; overload; inline;
+    function Increment(const AIncrement: T): T; overload; inline;
+
+    { Atomically decrements the value (with an optional ADecrement) and returns
+      the new value.
+
+      Only meaningful when T is an integral type. Results will be undefined (and
+      may lead to crashes) if this is not the case). }
+    function Decrement: T; overload; inline;
+    function Decrement(const ADecrement: T): T; overload; inline;
+  end;
+
+type
+  { Specialized version of TAtomic<Integer>, providing better performance.
+    (although using the Atomic* intrinsics is still faster). }
+  TAtomicInteger = record
+  {$REGION 'Internal Declarations'}
+  private
+    FValue: Integer;
+  {$ENDREGION 'Internal Declarations'}
+  public
+    constructor Create(const AValue: Integer);
+
+    function Load: Integer; inline;
+    procedure Store(const ANewValue: Integer); inline;
+
+    function Exchange(const ANewValue: Integer): Integer; inline;
+
+    function CompareExchange(const ANewValue, AExpected: Integer): Integer; overload; inline;
+    function CompareExchange(const ANewValue, AExpected: Integer;
+      out ASucceeded: Boolean): Integer; overload; inline;
+
+    function Increment: Integer; overload; inline;
+    function Increment(const AIncrement: Integer): Integer; overload; inline;
+
+    function Decrement: Integer; overload; inline;
+    function Decrement(const ADecrement: Integer): Integer; overload; inline;
+  end;
+
+type
+  { Specialized version of TAtomic<Int64>, providing better performance.
+    (although using the Atomic* intrinsics is still faster). }
+  TAtomicInt64 = record
+  {$REGION 'Internal Declarations'}
+  private
+    FValue: Int64;
+  {$ENDREGION 'Internal Declarations'}
+  public
+    constructor Create(const AValue: Int64);
+
+    function Load: Int64; inline;
+    procedure Store(const ANewValue: Int64); inline;
+
+    function Exchange(const ANewValue: Int64): Int64; inline;
+
+    function CompareExchange(const ANewValue, AExpected: Int64): Int64; overload; inline;
+    function CompareExchange(const ANewValue, AExpected: Int64;
+      out ASucceeded: Boolean): Int64; overload; inline;
+
+    function Increment: Int64; overload; inline;
+    function Increment(const AIncrement: Int64): Int64; overload; inline;
+
+    function Decrement: Int64; overload; inline;
+    function Decrement(const ADecrement: Int64): Int64; overload; inline;
+  end;
+
+type
+  { Specialized version of TAtomic<NativeInt>, providing better performance
+    (although using the Atomic* intrinsics is still faster). }
+  TAtomicNativeInt = record
+  {$REGION 'Internal Declarations'}
+  private
+    FValue: NativeInt;
+  {$ENDREGION 'Internal Declarations'}
+  public
+    constructor Create(const AValue: NativeInt);
+
+    function Load: NativeInt; inline;
+    procedure Store(const ANewValue: NativeInt); inline;
+
+    function Exchange(const ANewValue: NativeInt): NativeInt; inline;
+
+    function CompareExchange(const ANewValue, AExpected: NativeInt): NativeInt; overload; inline;
+    function CompareExchange(const ANewValue, AExpected: NativeInt;
+      out ASucceeded: Boolean): NativeInt; overload; inline;
+
+    function Increment: NativeInt; overload; inline;
+    function Increment(const AIncrement: NativeInt): NativeInt; overload; inline;
+
+    function Decrement: NativeInt; overload; inline;
+    function Decrement(const ADecrement: NativeInt): NativeInt; overload; inline;
+  end;
+
 resourcestring
   RS_NULLABLE_ERROR = 'Illegal access of nullable value wity value null';
 
@@ -233,6 +379,509 @@ begin
   Item2 := AItem2;
   Item3 := AItem3;
   Item4 := AItem4;
+end;
+
+{ TAtomic<T> }
+
+function TAtomic<T>.CompareExchange(const ANewValue, AExpected: T): T;
+{ Note that the "if" statements are evaluated at compile time, so they do not
+  affect runtime performance }
+var
+  V8: Byte absolute ANewValue;
+  V16: Word absolute ANewValue;
+  V32: Cardinal absolute ANewValue;
+  V64: UInt64 absolute ANewValue;
+  E8: Byte absolute AExpected;
+  E16: Word absolute AExpected;
+  E32: Cardinal absolute AExpected;
+  E64: UInt64 absolute AExpected;
+  R8: Byte absolute Result;
+  R16: Word absolute Result;
+  R32: Cardinal absolute Result;
+  R64: UInt64 absolute Result;
+begin
+  if (SizeOf(T) = 1) then
+    R8 := AtomicCmpExchange(PByte(@FValue)^, V8, E8)
+  else if (SizeOf(T) = 2) then
+    R16 := AtomicCmpExchange(PWord(@FValue)^, V16, E16)
+  else if (SizeOf(T) = 4) then
+    R32 := AtomicCmpExchange(PCardinal(@FValue)^, V32, E32)
+  else if (SizeOf(T) = 8) then
+    R64 := AtomicCmpExchange(PUInt64(@FValue)^, V64, E64)
+  else
+    Assert(False);
+end;
+
+function TAtomic<T>.CompareExchange(const ANewValue, AExpected: T;
+  out ASucceeded: Boolean): T;
+{ Note that the "if" statements are evaluated at compile time, so they do not
+  affect runtime performance }
+var
+  V8: Byte absolute ANewValue;
+  V16: Word absolute ANewValue;
+  V32: Cardinal absolute ANewValue;
+  V64: UInt64 absolute ANewValue;
+  E8: Byte absolute AExpected;
+  E16: Word absolute AExpected;
+  E32: Cardinal absolute AExpected;
+  E64: UInt64 absolute AExpected;
+  R8: Byte absolute Result;
+  R16: Word absolute Result;
+  R32: Cardinal absolute Result;
+  R64: UInt64 absolute Result;
+begin
+  if (SizeOf(T) = 1) then
+    R8 := AtomicCmpExchange(PByte(@FValue)^, V8, E8, ASucceeded)
+  else if (SizeOf(T) = 2) then
+    R16 := AtomicCmpExchange(PWord(@FValue)^, V16, E16, ASucceeded)
+  else if (SizeOf(T) = 4) then
+    R32 := AtomicCmpExchange(PCardinal(@FValue)^, V32, E32, ASucceeded)
+  else if (SizeOf(T) = 8) then
+    R64 := AtomicCmpExchange(PUInt64(@FValue)^, V64, E64, ASucceeded)
+  else
+    Assert(False);
+end;
+
+constructor TAtomic<T>.Create(const AValue: T);
+begin
+  FValue := AValue;
+end;
+
+function TAtomic<T>.Decrement(const ADecrement: T): T;
+{ Note that the "if" statements are evaluated at compile time, so they do not
+  affect runtime performance }
+var
+  V8: Byte absolute ADecrement;
+  V16: Word absolute ADecrement;
+  V32: Cardinal absolute ADecrement;
+  V64: UInt64 absolute ADecrement;
+  R8: Byte absolute Result;
+  R16: Word absolute Result;
+  R32: Cardinal absolute Result;
+  R64: UInt64 absolute Result;
+begin
+  if (SizeOf(T) = 1) then
+    R8 := AtomicDecrement(PByte(@FValue)^, V8)
+  else if (SizeOf(T) = 2) then
+    R16 := AtomicDecrement(PWord(@FValue)^, V16)
+  else if (SizeOf(T) = 4) then
+    R32 := AtomicDecrement(PCardinal(@FValue)^, V32)
+  else if (SizeOf(T) = 8) then
+    R64 := AtomicDecrement(PUInt64(@FValue)^, V64)
+  else
+    Assert(False);
+end;
+
+function TAtomic<T>.Decrement: T;
+{ Note that the "if" statements are evaluated at compile time, so they do not
+  affect runtime performance }
+var
+  R8: Byte absolute Result;
+  R16: Word absolute Result;
+  R32: Cardinal absolute Result;
+  R64: UInt64 absolute Result;
+begin
+  if (SizeOf(T) = 1) then
+    R8 := AtomicDecrement(PByte(@FValue)^)
+  else if (SizeOf(T) = 2) then
+    R16 := AtomicDecrement(PWord(@FValue)^)
+  else if (SizeOf(T) = 4) then
+    R32 := AtomicDecrement(PCardinal(@FValue)^)
+  else if (SizeOf(T) = 8) then
+    R64 := AtomicDecrement(PUInt64(@FValue)^)
+  else
+    Assert(False);
+end;
+
+function TAtomic<T>.Exchange(const ANewValue: T): T;
+{ Note that the "if" statements are evaluated at compile time, so they do not
+  affect runtime performance }
+var
+  V8: Byte absolute ANewValue;
+  V16: Word absolute ANewValue;
+  V32: Cardinal absolute ANewValue;
+  V64: UInt64 absolute ANewValue;
+  R8: Byte absolute Result;
+  R16: Word absolute Result;
+  R32: Cardinal absolute Result;
+  R64: UInt64 absolute Result;
+begin
+  if (SizeOf(T) = 1) then
+    R8 := AtomicExchange(PByte(@FValue)^, V8)
+  else if (SizeOf(T) = 2) then
+    R16 := AtomicExchange(PWord(@FValue)^, V16)
+  else if (SizeOf(T) = 4) then
+    R32 := AtomicExchange(PCardinal(@FValue)^, V32)
+  else if (SizeOf(T) = 8) then
+    R64 := AtomicExchange(PUInt64(@FValue)^, V64)
+  else
+    Assert(False);
+end;
+
+function TAtomic<T>.Increment(const AIncrement: T): T;
+{ Note that the "if" statements are evaluated at compile time, so they do not
+  affect runtime performance }
+var
+  V8: Byte absolute AIncrement;
+  V16: Word absolute AIncrement;
+  V32: Cardinal absolute AIncrement;
+  V64: UInt64 absolute AIncrement;
+  R8: Byte absolute Result;
+  R16: Word absolute Result;
+  R32: Cardinal absolute Result;
+  R64: UInt64 absolute Result;
+begin
+  if (SizeOf(T) = 1) then
+    R8 := AtomicIncrement(PByte(@FValue)^, V8)
+  else if (SizeOf(T) = 2) then
+    R16 := AtomicIncrement(PWord(@FValue)^, V16)
+  else if (SizeOf(T) = 4) then
+    R32 := AtomicIncrement(PCardinal(@FValue)^, V32)
+  else if (SizeOf(T) = 8) then
+    R64 := AtomicIncrement(PUInt64(@FValue)^, V64)
+  else
+    Assert(False);
+end;
+
+function TAtomic<T>.Increment: T;
+{ Note that the "if" statements are evaluated at compile time, so they do not
+  affect runtime performance }
+var
+  R8: Byte absolute Result;
+  R16: Word absolute Result;
+  R32: Cardinal absolute Result;
+  R64: UInt64 absolute Result;
+begin
+  if (SizeOf(T) = 1) then
+    R8 := AtomicIncrement(PByte(@FValue)^)
+  else if (SizeOf(T) = 2) then
+    R16 := AtomicIncrement(PWord(@FValue)^)
+  else if (SizeOf(T) = 4) then
+    R32 := AtomicIncrement(PCardinal(@FValue)^)
+  else if (SizeOf(T) = 8) then
+    R64 := AtomicIncrement(PUInt64(@FValue)^)
+  else
+    Assert(False);
+end;
+
+function TAtomic<T>.Load: T;
+{ On Intel platforms, CPU loads are guaranteed to be atomic if the value
+  is properly aligned.
+  Note that the "if" statements are evaluated at compile time, so they do not
+  affect runtime performance }
+var
+  R8: Byte absolute Result;
+  R16: Word absolute Result;
+  R32: Cardinal absolute Result;
+  R64: UInt64 absolute Result;
+begin
+  {$IF Defined(CPUX86)}
+  if (SizeOf(T) = 1) then
+    R8 := PByte(@FValue)^
+  else if (SizeOf(T) = 2) then
+  begin
+    Assert((UIntPtr(@FValue) and 1) = 0);
+    R16 := PWord(@FValue)^;
+  end
+  else if (SizeOf(T) = 4) then
+  begin
+    Assert((UIntPtr(@FValue) and 3) = 0);
+    R32 := PCardinal(@FValue)^;
+  end
+  else if (SizeOf(T) = 8) then
+    R64 := AtomicCmpExchange(PUInt64(@FValue)^, 0, 0)
+  else
+    Assert(False);
+  {$ELSEIF Defined(CPUX64)}
+  if (SizeOf(T) = 1) then
+    R8 := PByte(@FValue)^
+  else if (SizeOf(T) = 2) then
+  begin
+    Assert((UIntPtr(@FValue) and 1) = 0);
+    R16 := PWord(@FValue)^;
+  end
+  else if (SizeOf(T) = 4) then
+  begin
+    Assert((UIntPtr(@FValue) and 3) = 0);
+    R32 := PCardinal(@FValue)^;
+  end
+  else if (SizeOf(T) = 8) then
+  begin
+    Assert((UIntPtr(@FValue) and 7) = 0);
+    R64 := PUInt64(@FValue)^;
+  end
+  else
+    Assert(False);
+  {$ELSE}
+  if (SizeOf(T) = 1) then
+    R8 := AtomicCmpExchange(PByte(@FValue)^, 0, 0)
+  else if (SizeOf(T) = 2) then
+    R16 := AtomicCmpExchange(PWord(@FValue)^, 0, 0)
+  else if (SizeOf(T) = 4) then
+    R32 := AtomicCmpExchange(PCardinal(@FValue)^, 0, 0)
+  else if (SizeOf(T) = 8) then
+    R64 := AtomicCmpExchange(PUInt64(@FValue)^, 0, 0)
+  else
+    Assert(False);
+  {$ENDIF}
+end;
+
+procedure TAtomic<T>.Store(const ANewValue: T);
+{ On Intel platforms, CPU stored are guaranteed to be atomic if the value
+  is properly aligned.
+  Note that the "if" statements are evaluated at compile time, so they do not
+  affect runtime performance }
+var
+  V8: Byte absolute ANewValue;
+  V16: Word absolute ANewValue;
+  V32: Cardinal absolute ANewValue;
+  V64: UInt64 absolute ANewValue;
+begin
+  {$IF Defined(CPUX86)}
+  if (SizeOf(T) = 1) then
+    PByte(@FValue)^ := V8
+  else if (SizeOf(T) = 2) then
+  begin
+    Assert((UIntPtr(@FValue) and 1) = 0);
+    PWord(@FValue)^ := V16;
+  end
+  else if (SizeOf(T) = 4) then
+  begin
+    Assert((UIntPtr(@FValue) and 3) = 0);
+    PCardinal(@FValue)^ := V32;
+  end
+  else if (SizeOf(T) = 8) then
+    AtomicExchange(PUInt64(@FValue)^, V64)
+  else
+    Assert(False);
+  {$ELSEIF Defined(CPUX64)}
+  if (SizeOf(T) = 1) then
+    PByte(@FValue)^ := V8
+  else if (SizeOf(T) = 2) then
+  begin
+    Assert((UIntPtr(@FValue) and 1) = 0);
+    PWord(@FValue)^ := V16;
+  end
+  else if (SizeOf(T) = 4) then
+  begin
+    Assert((UIntPtr(@FValue) and 3) = 0);
+    PCardinal(@FValue)^ := V32;
+  end
+  else if (SizeOf(T) = 8) then
+  begin
+    Assert((UIntPtr(@FValue) and 7) = 0);
+    PUInt64(@FValue)^ := V64;
+  end
+  else
+    Assert(False);
+  {$ELSE}
+  if (SizeOf(T) = 1) then
+    AtomicExchange(PByte(@FValue)^, V8)
+  else if (SizeOf(T) = 2) then
+    AtomicExchange(PWord(@FValue)^, V16)
+  else if (SizeOf(T) = 4) then
+    AtomicExchange(PCardinal(@FValue)^, V32)
+  else if (SizeOf(T) = 8) then
+    AtomicExchange(PUInt64(@FValue)^, V64)
+  else
+    Assert(False);
+  {$ENDIF}
+end;
+
+{ TAtomicInteger }
+
+function TAtomicInteger.CompareExchange(const ANewValue,
+  AExpected: Integer): Integer;
+begin
+  Result := AtomicCmpExchange(FValue, ANewValue, AExpected);
+end;
+
+function TAtomicInteger.CompareExchange(const ANewValue, AExpected: Integer;
+  out ASucceeded: Boolean): Integer;
+begin
+  Result := AtomicCmpExchange(FValue, ANewValue, AExpected, ASucceeded);
+end;
+
+constructor TAtomicInteger.Create(const AValue: Integer);
+begin
+  FValue := AValue;
+end;
+
+function TAtomicInteger.Decrement(const ADecrement: Integer): Integer;
+begin
+  Result := AtomicDecrement(FValue, ADecrement);
+end;
+
+function TAtomicInteger.Decrement: Integer;
+begin
+  Result := AtomicDecrement(FValue);
+end;
+
+function TAtomicInteger.Exchange(const ANewValue: Integer): Integer;
+begin
+  Result := AtomicExchange(FValue, ANewValue);
+end;
+
+function TAtomicInteger.Increment(const AIncrement: Integer): Integer;
+begin
+  Result := AtomicIncrement(FValue, AIncrement);
+end;
+
+function TAtomicInteger.Increment: Integer;
+begin
+  Result := AtomicIncrement(FValue);
+end;
+
+function TAtomicInteger.Load: Integer;
+{ On Intel platforms, CPU loads are guaranteed to be atomic if the value
+  is properly aligned. }
+begin
+  {$IF Defined(CPUX86) or Defined(CPUX64)}
+  Result := FValue;
+  {$ELSE}
+  Result := AtomicCmpExchange(FValue, 0, 0);
+  {$ENDIF}
+end;
+
+procedure TAtomicInteger.Store(const ANewValue: Integer);
+{ On Intel platforms, CPU stored are guaranteed to be atomic if the value
+  is properly aligned. }
+begin
+  {$IF Defined(CPUX86) or Defined(CPUX64)}
+  FValue := ANewValue;
+  {$ELSE}
+  AtomicExchange(FValue, ANewValue);
+  {$ENDIF}
+end;
+
+{ TAtomicInt64 }
+
+function TAtomicInt64.CompareExchange(const ANewValue,
+  AExpected: Int64): Int64;
+begin
+  Result := AtomicCmpExchange(FValue, ANewValue, AExpected);
+end;
+
+function TAtomicInt64.CompareExchange(const ANewValue, AExpected: Int64;
+  out ASucceeded: Boolean): Int64;
+begin
+  Result := AtomicCmpExchange(FValue, ANewValue, AExpected, ASucceeded);
+end;
+
+constructor TAtomicInt64.Create(const AValue: Int64);
+begin
+  FValue := AValue;
+end;
+
+function TAtomicInt64.Decrement(const ADecrement: Int64): Int64;
+begin
+  Result := AtomicDecrement(FValue, ADecrement);
+end;
+
+function TAtomicInt64.Decrement: Int64;
+begin
+  Result := AtomicDecrement(FValue);
+end;
+
+function TAtomicInt64.Exchange(const ANewValue: Int64): Int64;
+begin
+  Result := AtomicExchange(FValue, ANewValue);
+end;
+
+function TAtomicInt64.Increment(const AIncrement: Int64): Int64;
+begin
+  Result := AtomicIncrement(FValue, AIncrement);
+end;
+
+function TAtomicInt64.Increment: Int64;
+begin
+  Result := AtomicIncrement(FValue);
+end;
+
+function TAtomicInt64.Load: Int64;
+{ On Intel platforms, CPU loads are guaranteed to be atomic if the value
+  is properly aligned. }
+begin
+  {$IF Defined(CPUX64)}
+  Result := FValue;
+  {$ELSE}
+  Result := AtomicCmpExchange(FValue, 0, 0);
+  {$ENDIF}
+end;
+
+procedure TAtomicInt64.Store(const ANewValue: Int64);
+{ On Intel platforms, CPU stored are guaranteed to be atomic if the value
+  is properly aligned. }
+begin
+  {$IF Defined(CPUX64)}
+  FValue := ANewValue;
+  {$ELSE}
+  AtomicExchange(FValue, ANewValue);
+  {$ENDIF}
+end;
+
+{ TAtomicNativeInt }
+
+function TAtomicNativeInt.CompareExchange(const ANewValue,
+  AExpected: NativeInt): NativeInt;
+begin
+  Result := AtomicCmpExchange(FValue, ANewValue, AExpected);
+end;
+
+function TAtomicNativeInt.CompareExchange(const ANewValue,
+  AExpected: NativeInt; out ASucceeded: Boolean): NativeInt;
+begin
+  Result := AtomicCmpExchange(FValue, ANewValue, AExpected, ASucceeded);
+end;
+
+constructor TAtomicNativeInt.Create(const AValue: NativeInt);
+begin
+  FValue := AValue;
+end;
+
+function TAtomicNativeInt.Decrement(const ADecrement: NativeInt): NativeInt;
+begin
+  Result := AtomicDecrement(FValue, ADecrement);
+end;
+
+function TAtomicNativeInt.Decrement: NativeInt;
+begin
+  Result := AtomicDecrement(FValue);
+end;
+
+function TAtomicNativeInt.Exchange(const ANewValue: NativeInt): NativeInt;
+begin
+  Result := AtomicExchange(FValue, ANewValue);
+end;
+
+function TAtomicNativeInt.Increment(const AIncrement: NativeInt): NativeInt;
+begin
+  Result := AtomicIncrement(FValue, AIncrement);
+end;
+
+function TAtomicNativeInt.Increment: NativeInt;
+begin
+  Result := AtomicIncrement(FValue);
+end;
+
+function TAtomicNativeInt.Load: NativeInt;
+{ On Intel platforms, CPU loads are guaranteed to be atomic if the value
+  is properly aligned. }
+begin
+  {$IF Defined(CPUX86) or Defined(CPUX64)}
+  Result := FValue;
+  {$ELSE}
+  Result := AtomicCmpExchange(FValue, 0, 0);
+  {$ENDIF}
+end;
+
+procedure TAtomicNativeInt.Store(const ANewValue: NativeInt);
+begin
+  {$IF Defined(CPUX86) or Defined(CPUX64)}
+  FValue := ANewValue;
+  {$ELSE}
+  AtomicExchange(FValue, ANewValue);
+  {$ENDIF}
 end;
 
 end.
