@@ -264,6 +264,35 @@ type
     function Decrement(const ADecrement: NativeInt): NativeInt; overload; inline;
   end;
 
+{ Allocates memory aligned to a certain boundary.
+
+  Parameters:
+    APtr: the memory pointer to allocate
+    ASize: the number of bytes to allocate
+    AAlign: the alignment (eg. use 16 to align on a 16-byte boundary).
+      Must be >= 8 and a power of 2.
+
+  Do @bold(not) use FreeMem to free the memory. You @bold(must) use
+  FreeMemAligned instead. }
+procedure GetMemAligned(out APtr; const ASize, AAlign: NativeInt);
+
+{ Allocates memory aligned to a Level 1 cache line (which is currently assumed
+  to be 64 bytes on all platforms).
+
+  Parameters:
+    APtr: the memory pointer to allocate
+    ASize: the number of bytes to allocate
+
+  Do @bold(not) use FreeMem to free the memory. You @bold(must) use
+  FreeMemAligned instead. }
+procedure GetMemL1Aligned(out APtr; const ASize: NativeInt); inline;
+
+{ Frees memory previously allocated with GetMemAligned or GetMemL1Aligned.
+
+  Parameters:
+    APtr: the memory pointer to deallocate }
+procedure FreeMemAligned(const APtr: Pointer);
+
 resourcestring
   RS_NULLABLE_ERROR = 'Illegal access of nullable value wity value null';
 
@@ -272,6 +301,53 @@ implementation
 uses
   System.Classes,
   System.SysUtils;
+
+procedure GetMemAligned(out APtr; const ASize, AAlign: NativeInt);
+var
+  Orig: Pointer;
+  Aligned: IntPtr absolute APtr;
+  BytesShifted: Integer;
+begin
+  Assert(AAlign >= 8);
+  Assert((AAlign and (AAlign - 1)) = 0);
+
+  { Allocate AAlign extra bytes of memory. These extra bytes are used to move
+    the pointer to an aligned address, AND to store the number of bytes shifted,
+    so we can retrieve the original pointer later when freeing it. }
+  GetMem(Orig, ASize + AAlign);
+
+  { Move pointer to next multiple of AAlign. If pointer is already aligned, then
+    it is moved AAlign bytes ahead (so we always have some extra room before the
+    pointer. }
+  Aligned := (IntPtr(Orig) and not (AAlign - 1)) + AAlign;
+
+  { Store shift value before the pointer }
+  BytesShifted := Aligned - IntPtr(Orig);
+  PInteger(Aligned - 4)^ := BytesShifted;
+end;
+
+procedure GetMemL1Aligned(out APtr; const ASize: NativeInt);
+begin
+  GetMemAligned(APtr, ASize, 64);
+end;
+
+procedure FreeMemAligned(const APtr: Pointer);
+var
+  BytesShifted: Integer;
+  Orig: Pointer;
+begin
+  if (APtr = nil) then
+    Exit;
+
+  { Retrieve shift value }
+  BytesShifted := PInteger(IntPtr(APtr) - 4)^;
+
+  { Get original pointer }
+  Orig := Pointer(IntPtr(APtr) - BytesShifted);
+
+  { Free original pointer }
+  FreeMem(Orig);
+end;
 
 { TNonRefCountedObject }
 
