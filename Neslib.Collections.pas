@@ -1619,6 +1619,189 @@ type
     function Extract(const AItem: T): T;
   end;
 
+type
+  { A lock-free and wait-free thread-safe Single Producer, Single Consumer
+    queue. This class is only thread-safe when it is used by at most two threads
+    where one thread is only the producer (enqueues) and the other thread is
+    only the consumer (dequeues). When compiling in DEBUG mode, these conditions
+    are checked and an exception is raised when the class is accessed from an
+    invalid thread.
+
+    This class is 2 to 20 times faster than using a TQueue<T> with a critical
+    section.
+
+    This class may not be as memory efficient as a TQueue though because it
+    never shrinks memory when dequeueing items (that would be impossible to do
+    under concurrency with the model used). This means that there also is no
+    Clear method.
+
+    To achieve this speed, this class is implemented as a queue-of-queues. To
+    reduce the number of dynamic memory allocations, a number of elements are
+    stored inside a single allocated block. By default, the first block contains
+    16 elements (you can change this value in the constructor). Once the block
+    is full, a new block with twice the number of elements (32) is allocated and
+    added to the top-level queue. As the queue keeps growing the block size
+    keeps doubling until it reaches a size of 512 elements. After that, all new
+    blocks will have room for 512 elements.
+
+    Based on "readerwriterqueue" (https://github.com/cameron314/readerwriterqueue) }
+  TSpScQueue<T> = class
+  {$REGION 'Internal Declarations'}
+  private const
+    { Maximum number of elements inside a single block.
+      Must be >= 2 and a power of 2 }
+    MAX_BLOCK_SIZE = 512;
+
+    { Size of a cache line in bytes. This value should work with most CPUs. }
+    CACHE_LINE_SIZE = 64;
+
+    { Memory alignment boundary }
+    ALIGNMENT = 8;
+  private type
+    P = ^T;
+  private type
+    { A single block of elements }
+    PBlock = ^TBlock;
+    TBlock = record
+    public
+      { Avoid false-sharing by putting highly contended variables on their
+        own cache lines }
+
+      { Elements are read from (dequeued) here }
+      [volatile] Front: NativeInt;
+
+      { An uncontended shadow copy of tail, owned by the consumer }
+      LocalTail: NativeInt;
+      CacheLineFiller0: array [0..CACHE_LINE_SIZE - SizeOf(NativeInt) - SizeOf(NativeInt) - 1] of Byte;
+
+      { Elements are enqueued here }
+      [volatile] Tail: NativeInt;
+      LocalFront: NativeInt;
+      CacheLineFiller1: array [0..CACHE_LINE_SIZE - SizeOf(NativeInt) - SizeOf(NativeInt) - 1] of Byte;
+
+      { Next isn't very contended, but we don't want it on the same cache line
+        as Tail (which is) }
+      [volatile] Next: PBlock;
+
+      { Pointer to the elements in the block }
+      Data: PByte;
+
+      { Maximum number of elements in the block minus one. Used with a bitwise
+        AND operator to round-robin the elements in the block. }
+      SizeMask: NativeInt;
+
+      { Original pointer to the block. This block is aligned to an
+        ALIGNMENT-byte boundary which may not be equal to the memory address
+        obtained from the memory manager. The original (unaligned) address is
+        stored here so the block can be freed later using the correct address. }
+      RawSelf: Pointer;
+    public
+      { Initializes the block.
+
+        Parameters:
+          ASize: number of elements in the block. Must be a power of 2.
+          ARawSelf: the original (unaligned) address of this block.
+          AData: pointer to the first element in the block }
+      procedure Init(const ASize: NativeInt; const ARawSelf, AData: Pointer);
+    end;
+  private
+    { Head block with elements }
+    [volatile] FFrontBlock: PBlock;
+    FCacheLineFiller: array [0..CACHE_LINE_SIZE - SizeOf(Pointer) - 1] of Byte;
+
+    { Tail block with elements }
+    [volatile] FTailBlock: PBlock;
+
+    { Number of elements in the largest block }
+    FLargestBlockSize: Integer;
+
+    {$IFDEF DEBUG}
+    FProducerThreadID: TThreadID;
+    FConsumerThreadID: TThreadID;
+    {$ENDIF}
+  private
+    { Allocates a new block of elements.
+
+      Parameters:
+        ACapacity: the number of elements the block can contain.
+
+      Returns:
+        A pointer the a newly allocated block (aligned on an ALIGNMENT-byte
+        boundary). }
+    class function MakeBlock(const ACapacity: NativeInt): PBlock; static;
+
+    { Aligns memory.
+
+      Returns:
+        AData: pointer to align.
+
+      Returns:
+        AData aligned to an ALIGNMENT-byte boundary }
+    class function Align(const AData: PByte): PByte; inline; static;
+
+    { Helper to return the next power or two. }
+    class function NextPowerOfTwo(const AValue: Cardinal): Cardinal; static;
+  {$ENDREGION 'Internal Declarations'}
+  public
+    { Creates a new single-producer, single-consumer queue.
+
+      Parameters:
+        AInitialBlockSize: (optional) number of elements that the first block
+          can contain. As the queue grows, each additional block will have
+          double the number of elements as the previous block (up to 512
+          elements total).
+
+      The default value for AInitialBlockSize will suffice for most
+      applications. }
+    constructor Create(const AInitialBlockSize: Integer = 16);
+
+    { Destroys the queue.
+
+      If the queue still contains values, and those values are objects, then
+      those objects will NOT be freed, resulting in a memory leak. To avoid
+      this, the consumer thread should dequeue the queue until empty, and free
+      all objects it dequeues.
+
+      The queue should not be accessed concurrently while it is being destroyed.
+      It is up to the user to synchronize this. So you usually want to destroy
+      the queue after all threads that access it have been destroyed. }
+    destructor Destroy; override;
+
+    { Enqueues a value.
+
+      Parameters:
+        AValue: the value to enqueue.
+
+      Only a single producer thread is allowed to enqueue values. When compiling
+      in DEBUG mode, this will be checked and an exception will be raised if
+      another thread tries to enqueue a value.
+
+      If AValue is an object, then the queue will NOT take ownership of the
+      object. So the consumer thread should release the object later by
+      dequeueing and releasing it. }
+    procedure Enqueue(const AValue: T);
+
+    { Tries to dequeue a value.
+
+      Parameters:
+        AValue: if the queue is not empty, this parameter will be set to the
+          dequeued value. If the queue is empty, the value of this parameter
+          will be undefined.
+
+      Returns:
+        True if the value was successfully dequeued. False if the queue is
+        empty. In that case, the value of AValue will be undefined.
+
+      Only a single consumer thread is allowed to dequeue values. When compiling
+      in DEBUG mode, this will be checked and an exception will be raised if
+      another thread tries to dequeue a value. }
+    function Dequeue(out AValue: T): Boolean;
+
+    { The approximate number of items currently in the queue.
+      Safe to call from both the producer and consumer threads. }
+    function ApproximateCount: Integer;
+  end;
+
 {$REGION 'Internal Declarations'}
 const
   EMPTY_HASH = -1;
@@ -1634,12 +1817,20 @@ type
 function InCircularRange(const ABottom, AItem, ATopInc: Integer): Boolean; inline;
 procedure _ArgumentOutOfRangeError;
 procedure _UnbalancedOperationError;
+procedure _GenericDuplicateItemError;
+procedure _GenericItemNotFoundError;
+
+{$IFDEF DEBUG}
+procedure _InvalidConsumerThreadError;
+procedure _InvalidProducerThreadError;
+{$ENDIF}
 {$ENDREGION 'Internal Declarations'}
 
 implementation
 
 uses
   System.TypInfo,
+  System.Classes,
   System.SysUtils,
   System.RTLConsts;
 
@@ -1659,6 +1850,28 @@ procedure _UnbalancedOperationError;
 begin
   raise EListError.CreateRes(@SUnbalancedOperation);
 end;
+
+procedure _GenericDuplicateItemError;
+begin
+  raise EListError.CreateRes(@SGenericDuplicateItem);
+end;
+
+procedure _GenericItemNotFoundError;
+begin
+  raise EListError.CreateRes(@SGenericItemNotFound);
+end;
+
+{$IFDEF DEBUG}
+procedure _InvalidConsumerThreadError;
+begin
+  raise EInvalidOperation.Create('Invalid consumer thread');
+end;
+
+procedure _InvalidProducerThreadError;
+begin
+  raise EInvalidOperation.Create('Invalid producer thread');
+end;
+{$ENDIF}
 
 { TArray }
 
@@ -2294,7 +2507,7 @@ begin
         Exit;
 
       dupError:
-        raise EListError.CreateRes(@SGenericDuplicateItem);
+        _GenericDuplicateItemError;
     end;
   end;
   Assert((Result >= 0) and (Result <= FCount));
@@ -3037,7 +3250,7 @@ begin
       Break;
 
     if (HC = HashCode) and FComparer.Equals(FItems[Index].Key, AKey) then
-      raise EListError.CreateRes(@SGenericDuplicateItem);
+      _GenericDuplicateItemError;
 
     Index := (Index + 1) and Mask;
   end;
@@ -3208,7 +3421,7 @@ var
   Mask, Index, HashCode, HC: Integer;
 begin
   if (FCount = 0) then
-    raise EListError.CreateRes(@SGenericItemNotFound);
+    _GenericItemNotFoundError;
 
   HashCode := FComparer.GetHashCode(AKey) and HASH_MASK;
   Mask := Length(FItems) - 1;
@@ -3226,7 +3439,7 @@ begin
     Index := (Index + 1) and Mask;
   end;
 
-  raise EListError.CreateRes(@SGenericItemNotFound);
+  _GenericItemNotFoundError;
 end;
 
 procedure TDictionary<TKey, TValue>.ItemDeleted(const AKey: TKey;
@@ -3304,7 +3517,7 @@ var
   OldValue: TValue;
 begin
   if (FCount = 0) then
-    raise EListError.CreateRes(@SGenericItemNotFound);
+    _GenericItemNotFoundError;
 
   Mask := Length(FItems) - 1;
   HashCode := FComparer.GetHashCode(AKey) and HASH_MASK;
@@ -3314,7 +3527,7 @@ begin
   begin
     HC := FItems[Index].HashCode;
     if (HC = EMPTY_HASH) then
-      raise EListError.CreateRes(@SGenericItemNotFound);
+      _GenericItemNotFoundError;
 
     if (HC = HashCode) and FComparer.Equals(FItems[Index].Key, AKey) then
     begin
@@ -3755,7 +3968,7 @@ begin
       Break;
 
     if (HC = HashCode) and FComparer.Equals(FItems[Index].Item, AItem) then
-      raise EListError.CreateRes(@SGenericDuplicateItem);
+      _GenericDuplicateItemError;
 
     Index := (Index + 1) and Mask;
   end;
@@ -4041,6 +4254,412 @@ end;
 procedure TObjectSet<T>.ItemDeleted(const AItem: T);
 begin
   AItem.Free;
+end;
+
+{ TSpScQueue<T> }
+
+{ Design: Based on a queue-of-queues. The low-level queues are just circular
+  buffers with front and tail indices indicating where the next element to
+  dequeue is and where the next element can be enqueued, respectively.
+
+  Each low-level queue is called a "block". Each block wastes exactly one
+  element's worth of space to keep the design simple (if Front = Tail then the
+  queue is empty, and can't be full).
+
+  The high-level queue is a circular linked list of blocks; again there is a
+  Front and Tail, but this time they are pointers to the blocks. The front block
+  is where the next element to be dequeued is, provided the block is not empty.
+  The back block is where elements are to be enqueued, provided the block is not
+  full.
+
+  The producer thread owns all the tail indices/pointers. The consumer thread
+  owns all the front indices/pointers. Both threads read each other's variables,
+  but only the owning thread updates them. E.g. After the consumer reads the
+  producer's tail, the tail may change before the consumer is done dequeuing an
+  object, but the consumer knows the tail will never go backwards, only
+  forwards.
+
+  If there is no room to enqueue an object, an additional block is added.
+  Blocks are never removed. }
+
+class function TSpScQueue<T>.Align(const AData: PByte): PByte;
+begin
+  Result := AData + (ALIGNMENT - (NativeInt(AData) mod ALIGNMENT)) mod ALIGNMENT;
+end;
+
+function TSpScQueue<T>.ApproximateCount: Integer;
+var
+  FrontBlock, Block: PBlock;
+  BlockFront, BlockTail: Integer;
+begin
+  Result := 0;
+  FrontBlock := FFrontBlock;
+  Block := FrontBlock;
+  repeat
+    MemoryBarrier;
+    BlockFront := Block.Front;
+    BlockTail := Block.Tail;
+    Inc(Result, (BlockTail - BlockFront) and Block.SizeMask);
+    Block := Block.Next;
+  until (Block = FrontBlock);
+end;
+
+constructor TSpScQueue<T>.Create(const AInitialBlockSize: Integer);
+var
+  FirstBlock, LastBlock, Block: PBlock;
+  I, InitialBlockCount: Integer;
+begin
+  Assert(AInitialBlockSize > 0);
+  inherited Create;
+  {$IFDEF DEBUG}
+  FProducerThreadID := TThreadID(-1);
+  FConsumerThreadID := TThreadID(-1);
+  {$ENDIF}
+
+  { Make sure FCacheLineFiller is not optimized out by the compiler }
+  FCacheLineFiller[0] := 0;
+
+  FLargestBlockSize := NextPowerOfTwo(AInitialBlockSize);
+  if (FLargestBlockSize > (MAX_BLOCK_SIZE * 2)) then
+  begin
+    { We need a spare block in case the producer is writing to a different block
+      the consumer is reading from, and wants to enqueue the maximum number of
+      elements. We also need a spare element in each block to avoid the
+      ambiguity between Front = Tail meaning "empty" and "full".
+      So the effective number of slots that are guaranteed to be usable at any
+      time is the block size - 1 times the number of blocks - 1. Solving for
+      AInitialBlockSize and applying a ceiling to the division gives us
+      (after simplifying): }
+    InitialBlockCount := (AInitialBlockSize + (MAX_BLOCK_SIZE * 2) - 3) div (MAX_BLOCK_SIZE - 1);
+    FLargestBlockSize := MAX_BLOCK_SIZE;
+    FirstBlock := nil;
+    LastBlock := nil;
+    for I := 0 to InitialBlockCount - 1 do
+    begin
+      Block := MakeBlock(FLargestBlockSize);
+      if (FirstBlock = nil) then
+        FirstBlock := Block
+      else
+        LastBlock.Next := Block;
+      LastBlock := Block;
+      Block.Next := FirstBlock;
+    end;
+  end
+  else
+  begin
+    FirstBlock := MakeBlock(FLargestBlockSize);
+    FirstBlock.Next := FirstBlock;
+  end;
+
+  FFrontBlock := FirstBlock;
+  FTailBlock := FirstBlock;
+
+  { Make sure the reader/writer threads will have the initialized memory setup
+    above }
+  MemoryBarrier;
+end;
+
+function TSpScQueue<T>.Dequeue(out AValue: T): Boolean;
+var
+  FrontBlock, NextBlock: PBlock;
+  BlockTail, BlockFront, NextBlockFront, NextBlockTail: NativeInt;
+  HasItem: Boolean;
+  Element: P;
+label
+  NonEmptyFrontBlock;
+begin
+  {$IFDEF DEBUG}
+  if (FConsumerThreadID = TThreadID(-1)) then
+    FConsumerThreadID := TThread.Current.ThreadID;
+  if (TThread.Current.ThreadID <> FConsumerThreadID) then
+    _InvalidConsumerThreadError;
+  {$ENDIF}
+
+  { High-level pseudocode:
+    Remember where the tail block is
+    If the front block has an element in it, dequeue it
+    Else
+      If front block was the tail block when we entered the function, return False
+      Else advance to next block and dequeue the item there
+
+    Note that we have to use the value of the tail block from before we check if
+    the front block is full or not, in case the front block is empty and then,
+    before we check if the tail block is at the front block or not, the producer
+    fills up the front block *and moves on*, which would make us skip a filled
+    block. Seems unlikely, but was consistently reproducible in practice.
+
+    In order to avoid overhead in the common case, though, we do a
+    double-checked pattern where we have the fast path if the front block is not
+    empty, then read the tail block, then re-read the front block and check if
+    it's not empty again, then check if the tail block has advanced. }
+  FrontBlock := FFrontBlock;
+  BlockTail := FrontBlock.LocalTail;
+  BlockFront := FrontBlock.Front;
+  HasItem := (BlockFront <> BlockTail);
+  if (not HasItem) then
+  begin
+    FrontBlock.LocalTail := FrontBlock.Tail;
+    HasItem := (BlockFront <> FrontBlock.LocalTail);
+  end;
+
+  if (HasItem) then
+  begin
+    MemoryBarrier;
+
+NonEmptyFrontBlock:
+    { Front block not empty, dequeue from here }
+    Element := P(FrontBlock.Data + (BlockFront * SizeOf(T)));
+    AValue := Element^;
+    if IsManagedType(T) then
+      Element^ := Default(T);
+
+    BlockFront := (BlockFront + 1) and FrontBlock.SizeMask;
+    MemoryBarrier;
+    FrontBlock.Front := BlockFront;
+  end
+  else if (FrontBlock <> FTailBlock) then
+  begin
+    MemoryBarrier;
+    FrontBlock := FFrontBlock;
+    BlockTail := FrontBlock.Tail;
+    FrontBlock.LocalTail := BlockTail;
+    BlockFront := FrontBlock.Front;
+    MemoryBarrier;
+
+    if (BlockFront <> BlockTail) then
+      { Oh look, the front block isn't empty after all }
+      goto NonEmptyFrontBlock;
+
+    { Front block is empty but there's another block ahead, advance to it }
+    NextBlock := FrontBlock.Next;
+    { Don't need an acquire fence here since next can only ever be set on the
+      TailBlock, and we're not the TailBlock, and we did an acquire earlier
+      after reading TailBlock which ensures next is up-to-date on this CPU in
+      case we recently were at TailBlock. }
+
+    NextBlockFront := NextBlock.Front;
+    NextBlockTail := NextBlock.Tail;
+    NextBlock.LocalTail := NextBlockTail;
+    MemoryBarrier;
+
+    { Since the TailBlock is only ever advanced after being written to, we know
+      there's for sure an element to dequeue on it }
+    Assert(NextBlockFront <> NextBlockTail);
+
+    { We're done with this block, let the producer use it if it needs.
+      Expose possibly pending changes to FrontBlock.Front from last dequeue }
+    MemoryBarrier;
+    FrontBlock := NextBlock;
+    FFrontBlock := FrontBlock;
+
+    { Not strictly needed }
+    MemoryBarrier;
+
+    Element := P(FrontBlock.Data + (NextBlockFront * SizeOf(T)));
+    AValue := Element^;
+    if IsManagedType(T) then
+      Element^ := Default(T);
+
+    NextBlockFront := (NextBlockFront + 1) and FrontBlock.SizeMask;
+    MemoryBarrier;
+    FrontBlock.Front := NextBlockFront;
+  end
+  else
+    { No elements in current block and no other block to advance to }
+    Exit(False);
+
+  Result := True;
+end;
+
+destructor TSpScQueue<T>.Destroy;
+var
+  FrontBlock, Block, NextBlock: PBlock;
+  I, BlockFront, BlockTail: NativeInt;
+  Element: P;
+  RawBlock: Pointer;
+begin
+  { Make sure we get the latest version of all variables from other CPUs }
+  MemoryBarrier;
+
+  { Free all blocks and release the elements inside of them }
+  FrontBlock := FFrontBlock;
+  Block := FrontBlock;
+  repeat
+    NextBlock := Block.Next;
+    BlockFront := Block.Front;
+    BlockTail := Block.Tail;
+
+    { If the elements in the queue are of a managed type (like strings, objects
+      interfaces or objects under ARC), then we need to resets each element in
+      the block to each default value. This releases the reference to the value. }
+    if IsManagedType(T) then
+    begin
+      I := BlockFront;
+      while (I <> BlockTail) do
+      begin
+        Element := P(Block.Data + (I * SizeOf(T)));
+        Element^ := Default(T);
+        I := (I + 1) and Block.SizeMask;
+      end;
+    end;
+
+    RawBlock := Block.RawSelf;
+    FreeMem(RawBlock);
+    Block := NextBlock;
+  until (Block = FrontBlock);
+  inherited;
+end;
+
+procedure TSpScQueue<T>.Enqueue(const AValue: T);
+var
+  TailBlock, TailBlockNext, NewBlock: PBlock;
+  BlockFront, BlockTail, NextBlockTail, NextBlockFront, NewBlockSize: NativeInt;
+  HasRoom: Boolean;
+  Element: P;
+begin
+  {$IFDEF DEBUG}
+  if (FProducerThreadID = TThreadID(-1)) then
+    FProducerThreadID := TThread.Current.ThreadID;
+  if (TThread.Current.ThreadID <> FProducerThreadID) then
+    _InvalidProducerThreadError;
+  {$ENDIF}
+
+  { High-level pseudocode (assuming we're allowed to alloc a new block):
+    If room in tail block, add to tail
+    Else check next block
+      If next block is not the head block, enqueue on next block
+      Else create a new block and enqueue there
+      Advance tail to the block we just enqueued to }
+  TailBlock := FTailBlock;
+  BlockFront := TailBlock.LocalFront;
+  BlockTail := TailBlock.Tail;
+
+  NextBlockTail := (BlockTail + 1) and TailBlock.SizeMask;
+  HasRoom := (NextBlockTail <> BlockFront);
+  if (not HasRoom) then
+  begin
+    TailBlock.LocalFront := TailBlock.Front;
+    HasRoom := (NextBlockTail <> TailBlock.LocalFront);
+  end;
+
+  if (HasRoom) then
+  begin
+    MemoryBarrier;
+
+    { This block has room for at least one more element }
+    Element := P(TailBlock.Data + (BlockTail * SizeOf(T)));
+    Element^ := AValue;
+    MemoryBarrier;
+    TailBlock.Tail := NextBlockTail;
+  end
+  else
+  begin
+    MemoryBarrier;
+    if (TailBlock.Next <> FFrontBlock) then
+    begin
+      { Note that the reason we can't advance to the FrontBlock and start adding
+        new entries there is because if we did, then dequeue would stay in that
+        block, eventually reading the new values, instead of advancing to the
+        next full block (whose values were enqueued first and so should be
+        consumed first).
+
+        Ensure we get latest writes if we got the latest FrontBlock }
+      MemoryBarrier;
+
+      { TailBlock is full, but there's a free block ahead, use it }
+      TailBlockNext := TailBlock.Next;
+      NextBlockFront := TailBlockNext.Front;
+      TailBlockNext.LocalFront := NextBlockFront;
+      NextBlockTail := TailBlockNext.Tail;
+      MemoryBarrier;
+
+      { This block must be empty since it's not the head block and we go through
+        the blocks in a circle }
+      Assert(NextBlockFront = NextBlockTail);
+      TailBlockNext.LocalFront := NextBlockFront;
+
+      Element := P(TailBlockNext.Data + (NextBlockTail * SizeOf(T)));
+      Element^ := AValue;
+
+      TailBlockNext.Tail := (NextBlockTail + 1) and TailBlockNext.SizeMask;
+
+      MemoryBarrier;
+      FTailBlock := TailBlockNext;
+    end
+    else
+    begin
+      { TailBlock is full and there's no free block ahead; create a new block }
+      if (FLargestBlockSize >= MAX_BLOCK_SIZE) then
+        NewBlockSize := FLargestBlockSize
+      else
+        NewBlockSize := FLargestBlockSize * 2;
+      NewBlock := MakeBlock(NewBlockSize);
+      FLargestBlockSize := NewBlockSize;
+
+      Element := P(NewBlock.Data);
+      Element^ := AValue;
+
+      Assert(NewBlock.Front = 0);
+      NewBlock.Tail := 1;
+      NewBlock.LocalTail := 1;
+
+      NewBlock.Next := TailBlock.Next;
+      TailBlock.Next := NewBlock;
+
+      { Might be possible for the dequeue thread to see the new TailBlock.Next
+        *without* seeing the new TailBlock value, but this is OK since it can't
+        advance to the next block until TailBlock is set anyway (because the
+        only case where it could try to read the next is if it's already at the
+        TailBlock, and it won't advance past tailBlock in any circumstance). }
+      MemoryBarrier;
+      FTailBlock := NewBlock;
+    end;
+  end;
+end;
+
+class function TSpScQueue<T>.MakeBlock(const ACapacity: NativeInt): PBlock;
+var
+  Size: NativeInt;
+  NewBlockRaw, NewBlockAligned, NewBlockData: PByte;
+begin
+  { Allocate enough memory for the block itself, as well as all the elements it
+    will contain }
+  Size := SizeOf(TBlock) + ALIGNMENT - 1;
+  Inc(Size, SizeOf(T) * ACapacity + ALIGNMENT - 1);
+  GetMem(NewBlockRaw, Size);
+  if IsManagedType(T) then
+    FillChar(NewBlockRaw^, Size, 0);
+  NewBlockAligned := Align(NewBlockRaw);
+  NewBlockData := Align(NewBlockAligned + SizeOf(TBlock));
+  Result := PBlock(NewBlockAligned);
+  Result.Init(ACapacity, NewBlockRaw, NewBlockData);
+end;
+
+class function TSpScQueue<T>.NextPowerOfTwo(const AValue: Cardinal): Cardinal;
+begin
+  { http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2 }
+  Result := AValue - 1;
+  Result := Result or (Result shr 1);
+  Result := Result or (Result shr 2);
+  Result := Result or (Result shr 4);
+  Result := Result or (Result shr 8);
+  Result := Result or (Result shr 16);
+  Inc(Result);
+end;
+
+{ TSpScQueue<T>.TBlock }
+
+procedure TSpScQueue<T>.TBlock.Init(const ASize: NativeInt; const ARawSelf,
+  AData: Pointer);
+begin
+  Front := 0;
+  LocalTail := 0;
+  Tail := 0;
+  LocalFront := 0;
+  Next := nil;
+  Data := AData;
+  SizeMask := ASize - 1;
+  RawSelf := ARawSelf;
 end;
 
 end.
