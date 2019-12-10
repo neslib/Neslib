@@ -18,7 +18,7 @@ interface
 
 uses
   System.SysUtils;
-  
+
 { Fast Unicode to UTF-8 conversion.
 
   Parameters:
@@ -27,6 +27,17 @@ uses
   Returns:
     Converted UTF8String. }
 function Utf16ToUtf8(const ASource: String): UTF8String; overload; inline;
+
+{ Fast Unicode to UTF-8 conversion using a provided buffer.
+
+  Parameters:
+    ASource: pointer to UTF-16 encoded data.
+    ASourceLength: the number of characters (NOT bytes) in ASource to use.
+
+  Returns:
+    Converted UTF8String. }
+function Utf16ToUtf8(const ASource: Pointer;
+  const ASourceLength: Integer): UTF8String; overload;
 
 { Fast Unicode to UTF-8 conversion using a provided buffer.
 
@@ -189,6 +200,16 @@ begin
 
   SetLength(Result, (SrcLength + 1) * 3);
   SetLength(Result, Utf16ToUtf8(ASource, SrcLength, @Result[Low(UTF8String)]));
+end;
+
+function Utf16ToUtf8(const ASource: Pointer;
+  const ASourceLength: Integer): UTF8String; overload;
+begin
+  if (ASourceLength = 0) then
+    Exit('');
+
+  SetLength(Result, (ASourceLength + 1) * 3);
+  SetLength(Result, Utf16ToUtf8(ASource, ASourceLength, @Result[Low(UTF8String)]));
 end;
 
 function Utf16ToUtf8(const ASource: String; const ASourceLength: Integer;
