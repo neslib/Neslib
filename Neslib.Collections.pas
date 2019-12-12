@@ -1620,6 +1620,119 @@ type
   end;
 
 type
+  { A pool that you can use for string interning.
+
+    String interning is a way of storing on a single copy of a distinct string.
+    This can save memory in cases where many strings have the same value (for
+    example, when many nodes in an XML document have the same name). It can
+    also improve string comparison speed since interned strings can be checked
+    for equality by just comparing their addresses (see the SameStringRef
+    helper in Neslib.SysUtils).
+
+    Example:
+
+      <source>
+      var
+        Pool: TStringInternPool;
+        Part1, Part2, A, B, C: String;
+      begin
+        Pool := TStringInternPool.Create;
+        try
+          Part1 := 'Foo';
+          Part2 := 'Bar';
+
+          // Create 2 strings A and B with the same content.
+          // These exists as two separate strings in memory, so SameStringRef
+          // returns False.
+          A := Part1 + Part2;
+          B := Part1 + Part2;
+          Assert(not SameStringRef(A, B));
+
+          // Add A to the pool, since this is the first string with value
+          // 'FooBar' added to the pool, the Get method returns the original
+          // reference to A.
+          A := Pool.Get(A);
+
+          // When looking up B, there is already a string with the same value in
+          // the pool, so it returns a reference to A instead.
+          B := Pool.Get(B);
+          Assert(SameStringRef(A, B));
+
+          // You can do the same with string constants
+          C := Pool.Get('FooBar');
+          Assert(SameStringRef(A, C));
+        finally
+          Pool.Free;
+        end;
+      end;
+      </source> }
+  TStringInternPool = class
+  {$REGION 'Internal Declarations'}
+  private type
+    TItem = record
+      HashCode: Integer;
+      Value: String;
+    end;
+  private
+    FItems: TArray<TItem>;
+    FCount: Integer;
+    FGrowThreshold: Integer;
+  private
+    procedure Resize(ANewSize: Integer);
+  {$ENDREGION 'Internal Declarations'}
+  public
+    { Retrieves an interned version of a string.
+
+      Parameters:
+        AString: the string to intern
+
+      Returns:
+        The interned string.
+
+      If the pool already contains a string with the same content, then that
+      string is returned. Otherwise, AString is returned.
+
+      You can use the returned string for fast equality checking using
+      SameStringRef. }
+    function Get(const AString: String): String; overload;
+    function Get(const AString: PChar; const ALength: Integer): String; overload;
+  end;
+
+type
+  { As TStringInternPool, but works with UTF8String's instead. }
+  TUTF8StringInternPool = class
+  {$REGION 'Internal Declarations'}
+  private type
+    TItem = record
+      HashCode: Integer;
+      Value: UTF8String;
+    end;
+  private
+    FItems: TArray<TItem>;
+    FCount: Integer;
+    FGrowThreshold: Integer;
+  private
+    procedure Resize(ANewSize: Integer);
+  {$ENDREGION 'Internal Declarations'}
+  public
+    { Retrieves an interned version of a string.
+
+      Parameters:
+        AString: the string to intern
+
+      Returns:
+        The interned string.
+
+      If the pool already contains a string with the same content, then that
+      string is returned. Otherwise, AString is returned.
+
+      You can use the returned string for fast equality checking using
+      SameStringRef. }
+    function Get(const AString: UTF8String): UTF8String; overload;
+    function Get(const AString: PUTF8Char; const ALength: Integer): UTF8String; overload;
+  end;
+
+type
   { A lock-free and wait-free thread-safe Single Producer, Single Consumer
     queue. This class is only thread-safe when it is used by at most two threads
     where one thread is only the producer (enqueues) and the other thread is
@@ -1829,10 +1942,15 @@ procedure _InvalidProducerThreadError;
 implementation
 
 uses
+  {$IFDEF MSWINDOWS}
+  Winapi.Windows,
+  {$ENDIF}
   System.TypInfo,
   System.Classes,
   System.SysUtils,
-  System.RTLConsts;
+  System.RTLConsts,
+  System.AnsiStrings,
+  Neslib.Hash;
 
 function InCircularRange(const ABottom, AItem, ATopInc: Integer): Boolean; inline;
 begin
@@ -4254,6 +4372,184 @@ end;
 procedure TObjectSet<T>.ItemDeleted(const AItem: T);
 begin
   AItem.Free;
+end;
+
+{ TStringInternPool }
+
+function TStringInternPool.Get(const AString: String): String;
+var
+  Mask, Index, HashCode, HC: Integer;
+begin
+  if (FCount >= FGrowThreshold) then
+     Resize(Length(FItems) * 2);
+
+  HashCode := MurmurHash2(Pointer(AString)^, Length(AString) * SizeOf(Char));
+  Mask := Length(FItems) - 1;
+  Index := HashCode and Mask;
+
+  while True do
+  begin
+    HC := FItems[Index].HashCode;
+    if (HC = EMPTY_HASH) then
+      Break;
+
+    if (HC = HashCode) and (FItems[Index].Value = AString) then
+      Exit(FItems[Index].Value);
+
+    Index := (Index + 1) and Mask;
+  end;
+
+  FItems[Index].HashCode := HashCode;
+  FItems[Index].Value := AString;
+  Inc(FCount);
+  Result := AString;
+end;
+
+function TStringInternPool.Get(const AString: PChar;
+  const ALength: Integer): String;
+var
+  Mask, Index, HashCode, HC: Integer;
+begin
+  if (FCount >= FGrowThreshold) then
+     Resize(Length(FItems) * 2);
+
+  HashCode := MurmurHash2(AString^, ALength * SizeOf(Char));
+  Mask := Length(FItems) - 1;
+  Index := HashCode and Mask;
+
+  while True do
+  begin
+    HC := FItems[Index].HashCode;
+    if (HC = EMPTY_HASH) then
+      Break;
+
+    if (HC = HashCode) and (StrLComp(PChar(FItems[Index].Value), AString, ALength) = 0) then
+      Exit(FItems[Index].Value);
+
+    Index := (Index + 1) and Mask;
+  end;
+
+  FItems[Index].HashCode := HashCode;
+  SetString(FItems[Index].Value, AString, ALength);
+  Inc(FCount);
+  Result := AString;
+end;
+
+procedure TStringInternPool.Resize(ANewSize: Integer);
+var
+  NewMask, I, NewIndex: Integer;
+  OldItems, NewItems: TArray<TItem>;
+begin
+  if (ANewSize < 4) then
+    ANewSize := 4;
+  NewMask := ANewSize - 1;
+  SetLength(NewItems, ANewSize);
+  for I := 0 to ANewSize - 1 do
+    NewItems[I].HashCode := EMPTY_HASH;
+  OldItems := FItems;
+
+  for I := 0 to Length(OldItems) - 1 do
+  begin
+    if (OldItems[I].HashCode <> EMPTY_HASH) then
+    begin
+      NewIndex := OldItems[I].HashCode and NewMask;
+      while (NewItems[NewIndex].HashCode <> EMPTY_HASH) do
+        NewIndex := (NewIndex + 1) and NewMask;
+      NewItems[NewIndex] := OldItems[I];
+    end;
+  end;
+
+  FItems := NewItems;
+  FGrowThreshold := (ANewSize * 3) shr 2; // 75%
+end;
+
+{ TUTF8StringInternPool }
+
+function TUTF8StringInternPool.Get(const AString: UTF8String): UTF8String;
+var
+  Mask, Index, HashCode, HC: Integer;
+begin
+  if (FCount >= FGrowThreshold) then
+     Resize(Length(FItems) * 2);
+
+  HashCode := MurmurHash2(Pointer(AString)^, Length(AString) * SizeOf(UTF8Char));
+  Mask := Length(FItems) - 1;
+  Index := HashCode and Mask;
+
+  while True do
+  begin
+    HC := FItems[Index].HashCode;
+    if (HC = EMPTY_HASH) then
+      Break;
+
+    if (HC = HashCode) and (FItems[Index].Value = AString) then
+      Exit(FItems[Index].Value);
+
+    Index := (Index + 1) and Mask;
+  end;
+
+  FItems[Index].HashCode := HashCode;
+  FItems[Index].Value := AString;
+  Inc(FCount);
+  Result := AString;
+end;
+
+function TUTF8StringInternPool.Get(const AString: PUTF8Char;
+  const ALength: Integer): UTF8String;
+var
+  Mask, Index, HashCode, HC: Integer;
+begin
+  if (FCount >= FGrowThreshold) then
+     Resize(Length(FItems) * 2);
+
+  HashCode := MurmurHash2(AString^, ALength * SizeOf(UTF8Char));
+  Mask := Length(FItems) - 1;
+  Index := HashCode and Mask;
+
+  while True do
+  begin
+    HC := FItems[Index].HashCode;
+    if (HC = EMPTY_HASH) then
+      Break;
+
+    if (HC = HashCode) and (System.AnsiStrings.AnsiStrLComp(PUTF8Char(FItems[Index].Value), AString, ALength) = 0) then
+      Exit(FItems[Index].Value);
+
+    Index := (Index + 1) and Mask;
+  end;
+
+  FItems[Index].HashCode := HashCode;
+  SetString(FItems[Index].Value, AString, ALength);
+  Inc(FCount);
+  Result := AString;
+end;
+
+procedure TUTF8StringInternPool.Resize(ANewSize: Integer);
+var
+  NewMask, I, NewIndex: Integer;
+  OldItems, NewItems: TArray<TItem>;
+begin
+  if (ANewSize < 4) then
+    ANewSize := 4;
+  NewMask := ANewSize - 1;
+  SetLength(NewItems, ANewSize);
+  for I := 0 to ANewSize - 1 do
+    NewItems[I].HashCode := EMPTY_HASH;
+  OldItems := FItems;
+
+  for I := 0 to Length(OldItems) - 1 do
+  begin
+    if (OldItems[I].HashCode <> EMPTY_HASH) then
+    begin
+      NewIndex := OldItems[I].HashCode and NewMask;
+      while (NewItems[NewIndex].HashCode <> EMPTY_HASH) do
+        NewIndex := (NewIndex + 1) and NewMask;
+      NewItems[NewIndex] := OldItems[I];
+    end;
+  end;
+
+  FItems := NewItems;
+  FGrowThreshold := (ANewSize * 3) shr 2; // 75%
 end;
 
 { TSpScQueue<T> }

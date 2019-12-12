@@ -76,7 +76,7 @@ label1:
 finish:
   H := H xor (H shr 13);
   H := H * M;
-  Result := H xor (H shr 15);
+  Result := (H xor (H shr 15)) and $7FFFFFFF;
 end;
 
 end.
