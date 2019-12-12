@@ -20,7 +20,6 @@ interface
   NOTE: There is a newer version called MurmurHash3, which is potentially even
   faster. However, it uses some C language features (to achieve this
   performance) that are not available in Delphi. }
-
 function MurmurHash2(const AData; ALen: Integer): Integer;
 
 implementation
@@ -77,7 +76,7 @@ label1:
 finish:
   H := H xor (H shr 13);
   H := H * M;
-  Result := (H xor (H shr 15)) and $7FFFFFFF;
+  Result := H xor (H shr 15);
 end;
 
 end.
