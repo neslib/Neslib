@@ -4429,10 +4429,10 @@ begin
     Index := (Index + 1) and Mask;
   end;
 
+  SetString(Result, AString, ALength);
   FItems[Index].HashCode := HashCode;
-  SetString(FItems[Index].Value, AString, ALength);
+  FItems[Index].Value := Result;
   Inc(FCount);
-  Result := AString;
 end;
 
 procedure TStringInternPool.Resize(ANewSize: Integer);
@@ -4518,10 +4518,10 @@ begin
     Index := (Index + 1) and Mask;
   end;
 
+  SetString(Result, AString, ALength);
   FItems[Index].HashCode := HashCode;
-  SetString(FItems[Index].Value, AString, ALength);
+  FItems[Index].Value := Result;
   Inc(FCount);
-  Result := AString;
 end;
 
 procedure TUTF8StringInternPool.Resize(ANewSize: Integer);
