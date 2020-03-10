@@ -160,13 +160,19 @@ function TryStrToFloat(const AStr: UTF8String; out AValue: Double;
 
 function TryStrToFloat(const AStr: UTF8String; out AValue: Single): Boolean; overload; inline;
 function TryStrToFloat(const AStr: UTF8String; out AValue: Single;
-  const AFormatSettings: TFormatSettings): Boolean; overload; 
+  const AFormatSettings: TFormatSettings): Boolean; overload;
 
 implementation
 
 uses
   System.SysConst;
-  
+
+{$IFDEF LINUX}
+  { Issue #3 (in Neslib/Json repo): According to Delphi documentation,
+    EXTERNALLINKER should be defined on Linux, but apparently it isn't. }
+  {$DEFINE EXTERNALLINKER}
+{$ENDIF}
+
 { Quick Unicode and UTF-8/UTF-16 recap.
 
   Unicode codepoint range: U+0..U+10FFFF, except U+D800..U+DFFF (these are used
