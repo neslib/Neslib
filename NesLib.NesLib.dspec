@@ -1,12 +1,12 @@
 {
   "metadata": {
     "id": "NesLib.NesLib",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "NesLib Base Library",
     "authors": "Erik van Bilsen",
     "projectUrl": "https://github.com/neslib/Neslib",
     "license": "BSD-2-Clause",
-    "copyright": "2018 Erik van Bilsen",
+    "copyright": "2022 Erik van Bilsen",
     "tags": "collections hash"
   },
   "targetPlatforms": [
@@ -68,6 +68,11 @@
     {
       "compiler": "10.4",
       "platforms": "Win32, Win64, OSX64, iOS32, AndroidArm32, LinuxIntel64",
+      "template": "default"
+    },
+    {
+      "compiler": "11.0",
+      "platforms": "Win32, Win64, OSX64, iOS64, AndroidArm32, LinuxIntel64",
       "template": "default"
     }
   ],
