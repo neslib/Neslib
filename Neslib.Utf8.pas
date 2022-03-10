@@ -1871,6 +1871,9 @@ begin
         {$ELSE}
         LResult := Power10(LResult, LPower) * LSign;
         AValue := LResult;
+        {$IFDEF EXTERNALLINKER}
+        Result := True;
+        {$ENDIF}
         {$ENDIF}
 
         {$IFNDEF EXTERNALLINKER}
