@@ -328,8 +328,8 @@ begin
         tkInteger:
           begin
             SetLength(Bytes, 2);
-            Bytes[0] := AValue;
-            Bytes[1] := AValue * 2;
+            Bytes[0] := Byte(AValue);
+            Bytes[1] := Byte(AValue * 2);
           end;
 
         tkUString:

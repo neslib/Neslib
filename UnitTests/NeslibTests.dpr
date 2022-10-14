@@ -16,7 +16,8 @@ uses
   Tests.Collections.Dictionaries in 'Tests\Tests.Collections.Dictionaries.pas',
   Tests.Collections.Queues in 'Tests\Tests.Collections.Queues.pas',
   Tests.Collections.Stacks in 'Tests\Tests.Collections.Stacks.pas',
-  Tests.Collections.Sets in 'Tests\Tests.Collections.Sets.pas';
+  Tests.Collections.Sets in 'Tests\Tests.Collections.Sets.pas',
+  Tests.SysUtils in 'Tests\Tests.SysUtils.pas';
 
 var
   runner : ITestRunner;

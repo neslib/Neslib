@@ -1199,15 +1199,12 @@ type
     { Allow <tt>for..in</tt> enumeration of the pairs in the dictionary. }
     function GetEnumerator: TEnumerator<TPair<TKey, TValue>>; override;
   public
-    { Creates an empty dictionary }
-    constructor Create; overload;
-
-    { Creates an empty dictionary with a custom comparer.
+    { Creates an empty dictionary
 
       Parameters:
-        AComparer: the equality comparer to use for checking equality and
-          calculating hash codes. }
-    constructor Create(const AComparer: IEqualityComparer<TKey>); overload;
+        AComparer: (optional) equality comparer to use for checking equality and
+          calculating hash codes. If not set, a default comparer is used. }
+    constructor Create(const AComparer: IEqualityComparer<TKey> = nil);
 
     { Adds a value to the dictionary for a given key.
 
@@ -1344,11 +1341,14 @@ type
         AOwnerships: a set that indicates whether the dictionarly will own its
           keys, its values or both. The most common scenario is for dictionaries
           to own their values only.
+        AComparer: (optional) equality comparer to use for checking equality and
+          calculating hash codes. If not set, a default comparer is used.
 
       The constructor will check the key and value types (TKey and TValue) and
       raise an exception when it is set to own keys (or values), but TKey (or
       TValue) is not derived from TRefCounted. }
-    constructor Create(const AOwnerships: TDictionaryOwnerships);
+    constructor Create(const AOwnerships: TDictionaryOwnerships;
+      const AComparer: IEqualityComparer<TKey> = nil);
 
     { Extracts a key/value pair from the dictionary @bold(without) releasing it.
 
@@ -1537,6 +1537,8 @@ type
   protected
     procedure ItemDeleted(const AItem: T); virtual;
   {$ENDREGION 'Internal Declarations'}
+  public type
+    P = ^T;
   public
     { TEnumerable<T> }
 
@@ -1546,8 +1548,15 @@ type
     { Allow <tt>for..in</tt> enumeration of items in the set. }
     function GetEnumerator: TEnumerator<T>; override;
   public
-    { Creates a read-only set }
-    constructor Create;
+    { Creates an empty set }
+    constructor Create; overload;
+
+    { Creates an empty set with a custom comparer.
+
+      Parameters:
+        AComparer: the equality comparer to use for checking equality and
+          calculating hash codes. }
+    constructor Create(const AComparer: IEqualityComparer<T>); overload;
 
     { Adds an item to the set, raising an exception if the set already contains
       the item.
@@ -1584,8 +1593,8 @@ type
     procedure Clear; virtual;
 
     { Checks if the set contains a given item.
-      This is an O(1) operation that uses the dictionary's comparer to check
-      for equality.
+      This is an O(1) operation that uses the sets comparer to check for
+      equality.
 
       Parameters:
         AItem: the item to check.
@@ -3464,19 +3473,13 @@ begin
   Result := False;
 end;
 
-constructor TDictionary<TKey, TValue>.Create;
-begin
-  inherited Create;
-  FComparer := TEqualityComparer<TKey>.Default;
-  FKeys.FDictionary := Self;
-  FValues.FDictionary := Self;
-end;
-
 constructor TDictionary<TKey, TValue>.Create(
   const AComparer: IEqualityComparer<TKey>);
 begin
   inherited Create;
   FComparer := AComparer;
+  if (AComparer = nil) then
+    FComparer := TEqualityComparer<TKey>.Default;
   FKeys.FDictionary := Self;
   FValues.FDictionary := Self;
 end;
@@ -3877,13 +3880,14 @@ begin
 end;
 
 constructor TObjectDictionary<TKey, TValue>.Create(
-  const AOwnerships: TDictionaryOwnerships);
+  const AOwnerships: TDictionaryOwnerships;
+  const AComparer: IEqualityComparer<TKey>);
 begin
   if (doOwnsKeys in AOwnerships) and (GetTypeKind(TKey) <> tkClass) then
     raise EListError.CreateRes(@SObjectDictionaryRequiresObjectKeys);
   if (doOwnsValues in AOwnerships) and (GetTypeKind(TValue) <> tkClass) then
     raise EListError.CreateRes(@SObjectDictionaryRequiresObjectValues);
-  inherited Create;
+  inherited Create(AComparer);
   FOwnerships := AOwnerships;
 end;
 
@@ -4158,6 +4162,14 @@ begin
   end;
 
   Result := False;
+end;
+
+constructor TSet<T>.Create(const AComparer: IEqualityComparer<T>);
+begin
+  inherited Create;
+  FComparer := AComparer;
+  if (FComparer = nil) then
+    FComparer := TEqualityComparer<T>.Default;
 end;
 
 constructor TSet<T>.Create;
