@@ -184,6 +184,27 @@ type
   end;
 
 type
+  { Specialized version of TAtomic<Boolean>, providing better performance.
+    (although using the Atomic* intrinsics is still faster). }
+  TAtomicBoolean = record
+  {$REGION 'Internal Declarations'}
+  private
+    FValue: Integer;
+  {$ENDREGION 'Internal Declarations'}
+  public
+    constructor Create(const AValue: Boolean);
+
+    function Load: Boolean; inline;
+    procedure Store(const ANewValue: Boolean); inline;
+
+    function Exchange(const ANewValue: Boolean): Boolean; inline;
+
+    function CompareExchange(const ANewValue, AExpected: Boolean): Boolean; overload; inline;
+    function CompareExchange(const ANewValue, AExpected: Boolean;
+      out ASucceeded: Boolean): Boolean; overload; inline;
+  end;
+
+type
   { Specialized version of TAtomic<Integer>, providing better performance.
     (although using the Atomic* intrinsics is still faster). }
   TAtomicInteger = record
@@ -761,6 +782,52 @@ begin
     AtomicExchange(PUInt64(@FValue)^, V64)
   else
     Assert(False);
+  {$ENDIF}
+end;
+
+{ TAtomicBoolean }
+
+function TAtomicBoolean.CompareExchange(const ANewValue,
+  AExpected: Boolean): Boolean;
+begin
+  Result := (AtomicCmpExchange(FValue, Ord(ANewValue), Ord(AExpected)) <> 0);
+end;
+
+function TAtomicBoolean.CompareExchange(const ANewValue, AExpected: Boolean;
+  out ASucceeded: Boolean): Boolean;
+begin
+  Result := (AtomicCmpExchange(FValue, Ord(ANewValue), Ord(AExpected), ASucceeded) <> 0);
+end;
+
+constructor TAtomicBoolean.Create(const AValue: Boolean);
+begin
+  FValue := Ord(AValue);
+end;
+
+function TAtomicBoolean.Exchange(const ANewValue: Boolean): Boolean;
+begin
+  Result := (AtomicExchange(FValue, Ord(ANewValue)) <> 0);
+end;
+
+function TAtomicBoolean.Load: Boolean;
+{ On Intel platforms, CPU loads are guaranteed to be atomic if the value
+  is properly aligned. }
+begin
+  {$IF Defined(CPUX86) or Defined(CPUX64)}
+  Result := (FValue <> 0);
+  {$ELSE}
+  Result := (AtomicCmpExchange(FValue, 0, 0) <> 0);
+  {$ENDIF}
+end;
+
+procedure TAtomicBoolean.Store(const ANewValue: Boolean);
+{ On Intel platforms, CPU stored are guaranteed to be atomic if the value
+  is properly aligned. }
+begin
+  {$IF Defined(CPUX86) or Defined(CPUX64)}
+  FValue := Ord(ANewValue);
+  {$ELSE}
+  AtomicExchange(FValue, Ord(ANewValue));
   {$ENDIF}
 end;
 
