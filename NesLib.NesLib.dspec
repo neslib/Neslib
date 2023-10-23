@@ -1,7 +1,7 @@
 {
   "metadata": {
     "id": "NesLib.NesLib",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "NesLib Base Library",
     "authors": "Erik van Bilsen",
     "projectUrl": "https://github.com/neslib/Neslib",
@@ -72,6 +72,11 @@
     },
     {
       "compiler": "11.0",
+      "platforms": "Win32, Win64, OSX64, iOS64, AndroidArm32, LinuxIntel64",
+      "template": "default"
+    },
+    {
+      "compiler": "12.0",
       "platforms": "Win32, Win64, OSX64, iOS64, AndroidArm32, LinuxIntel64",
       "template": "default"
     }
