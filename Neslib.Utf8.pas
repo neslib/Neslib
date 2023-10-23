@@ -167,6 +167,8 @@ implementation
 uses
   System.SysConst;
 
+{$RANGECHECKS OFF}
+
 {$IFDEF LINUX}
   { Issue #3 (in Neslib/Json repo): According to Delphi documentation,
     EXTERNALLINKER should be defined on Linux, but apparently it isn't. }

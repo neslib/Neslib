@@ -1625,6 +1625,7 @@ end;
 
 initialization
   ReportMemoryLeaksOnShutdown := True;
+  TDUnitX.RegisterTestFixture(TTestList<TBytes>);
   TDUnitX.RegisterTestFixture(TTestList<ShortInt>);
   {$IFNDEF LIMITED_GENERICS}
   TDUnitX.RegisterTestFixture(TTestList<Byte>);
