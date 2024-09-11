@@ -3455,8 +3455,6 @@ begin
 
     Index := (Index + 1) and Mask;
   end;
-
-  Result := False;
 end;
 
 function TDictionary<TKey, TValue>.ContainsValue(const AValue: TValue): Boolean;
@@ -3541,6 +3539,8 @@ function TDictionary<TKey, TValue>.GetItem(const AKey: TKey): TValue;
 var
   Mask, Index, HashCode, HC: Integer;
 begin
+  Result := Default(TValue);
+
   if (FCount = 0) then
     _GenericItemNotFoundError;
 
@@ -4042,7 +4042,7 @@ function TConcurrentDictionary<TKey, TValue>.Remove(const AKey: TKey): Boolean;
 begin
   FLock.Acquire;
   try
-    FDictionary.Remove(AKey);
+    Result := FDictionary.Remove(AKey);
   finally
     FLock.Release;
   end;
@@ -4160,8 +4160,6 @@ begin
 
     Index := (Index + 1) and Mask;
   end;
-
-  Result := False;
 end;
 
 constructor TSet<T>.Create(const AComparer: IEqualityComparer<T>);
