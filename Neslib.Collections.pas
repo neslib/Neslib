@@ -3437,8 +3437,9 @@ function TDictionary<TKey, TValue>.ContainsKey(const AKey: TKey): Boolean;
 var
   Mask, Index, HashCode, HC: Integer;
 begin
+  Result := False;
   if (FCount = 0) then
-    Exit(False);
+    Exit;
 
   HashCode := FComparer.GetHashCode(AKey) and HASH_MASK;
   Mask := Length(FItems) - 1;
@@ -3448,15 +3449,13 @@ begin
   begin
     HC := FItems[Index].HashCode;
     if (HC = EMPTY_HASH) then
-      Exit(False);
+      Exit;
 
     if (HC = HashCode) and FComparer.Equals(FItems[Index].Key, AKey) then
       Exit(True);
 
     Index := (Index + 1) and Mask;
   end;
-
-  Result := False;
 end;
 
 function TDictionary<TKey, TValue>.ContainsValue(const AValue: TValue): Boolean;
@@ -3561,6 +3560,7 @@ begin
   end;
 
   _GenericItemNotFoundError;
+  Result := Default(TValue);
 end;
 
 procedure TDictionary<TKey, TValue>.ItemDeleted(const AKey: TKey;
@@ -4042,7 +4042,7 @@ function TConcurrentDictionary<TKey, TValue>.Remove(const AKey: TKey): Boolean;
 begin
   FLock.Acquire;
   try
-    FDictionary.Remove(AKey);
+    Result := FDictionary.Remove(AKey);
   finally
     FLock.Release;
   end;
@@ -4142,8 +4142,9 @@ function TSet<T>.Contains(const AItem: T): Boolean;
 var
   Mask, Index, HashCode, HC: Integer;
 begin
+  Result := False;
   if (FCount = 0) then
-    Exit(False);
+    Exit;
 
   HashCode := FComparer.GetHashCode(AItem) and HASH_MASK;
   Mask := Length(FItems) - 1;
@@ -4153,15 +4154,13 @@ begin
   begin
     HC := FItems[Index].HashCode;
     if (HC = EMPTY_HASH) then
-      Exit(False);
+      Exit;
 
     if (HC = HashCode) and FComparer.Equals(FItems[Index].Item, AItem) then
       Exit(True);
 
     Index := (Index + 1) and Mask;
   end;
-
-  Result := False;
 end;
 
 constructor TSet<T>.Create(const AComparer: IEqualityComparer<T>);
