@@ -3540,6 +3540,8 @@ function TDictionary<TKey, TValue>.GetItem(const AKey: TKey): TValue;
 var
   Mask, Index, HashCode, HC: Integer;
 begin
+  Result := Default(TValue);
+
   if (FCount = 0) then
     _GenericItemNotFoundError;
 
